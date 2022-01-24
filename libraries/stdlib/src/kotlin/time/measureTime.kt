@@ -39,6 +39,23 @@ public inline fun TimeSource.measureTime(block: () -> Unit): Duration {
     return mark.elapsedNow()
 }
 
+/**
+ * Executes the given function [block] and returns the duration of elapsed time interval.
+ *
+ * The elapsed time is measured with the specified `this` [TimeSource.Monotonic] instance.
+ */
+@SinceKotlin("1.3")
+@ExperimentalTime
+public inline fun TimeSource.Monotonic.measureTime(block: () -> Unit): Duration {
+    contract {
+        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+    }
+
+    val mark = markNow()
+    block()
+    return mark.elapsedNow()
+}
+
 
 /**
  * Data class representing a result of executing an action, along with the duration of elapsed time interval.
