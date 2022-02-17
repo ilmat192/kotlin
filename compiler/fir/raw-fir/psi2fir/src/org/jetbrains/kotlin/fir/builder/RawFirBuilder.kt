@@ -1766,9 +1766,6 @@ open class RawFirBuilder(
                         for (valueParameter in unwrappedElement.parameters) {
                             valueParameters += valueParameter.convert<FirValueParameter>()
                         }
-                        if (receiverTypeRef != null) {
-                            annotations += extensionFunctionAnnotation
-                        }
 
                         contextReceiverTypeRefs.addAll(
                             unwrappedElement.contextReceiversTypeReferences.mapNotNull {
@@ -2532,17 +2529,6 @@ open class RawFirBuilder(
                 source = expression.toFirSourceElement()
             }
         }
-    }
-
-    private val extensionFunctionAnnotation = buildAnnotation {
-        annotationTypeRef = buildResolvedTypeRef {
-            type = ConeClassLikeTypeImpl(
-                ConeClassLikeLookupTagImpl(EXTENSION_FUNCTION_ANNOTATION),
-                emptyArray(),
-                isNullable = false
-            )
-        }
-        argumentMapping = FirEmptyAnnotationArgumentMapping
     }
 }
 
