@@ -1019,6 +1019,19 @@ open class RawFirBuilder(
             }
         }
 
+        private fun convertContextReceivers(receivers: List<KtContextReceiver>): List<FirContextReceiver> {
+            return receivers.map { contextReceiverElement ->
+                buildContextReceiver {
+                    this.source = contextReceiverElement.toFirSourceElement()
+                    this.labelName = contextReceiverElement.labelNameAsName()
+
+                    contextReceiverElement.typeReference().convertSafe<FirTypeRef>()?.let {
+                        this.typeRef = it
+                    }
+                }
+            }
+        }
+
         override fun visitClassOrObject(classOrObject: KtClassOrObject, data: Unit): FirElement {
             // NB: enum entry nested classes are considered local by FIR design (see discussion in KT-45115)
             val isLocal = classOrObject.isLocal || classOrObject.getStrictParentOfType<KtEnumEntry>() != null
@@ -1146,6 +1159,7 @@ open class RawFirBuilder(
                         initCompanionObjectSymbolAttr()
 
                         context.popFirTypeParameters()
+                        contextReceivers.addAll(convertContextReceivers(classOrObject.contextReceivers))
                     }.also {
                         it.delegateFieldsMap = delegatedFieldsMap
                     }
@@ -1262,6 +1276,8 @@ open class RawFirBuilder(
                         isExternal = function.hasModifier(EXTERNAL_KEYWORD)
                         isSuspend = function.hasModifier(SUSPEND_KEYWORD)
                     }
+
+                    contextReceivers.addAll(convertContextReceivers(function.contextReceivers))
                 }
             }
 
@@ -1641,6 +1657,8 @@ open class RawFirBuilder(
                     it.useSiteTarget != PROPERTY_GETTER &&
                             (!isVar || it.useSiteTarget != SETTER_PARAMETER && it.useSiteTarget != PROPERTY_SETTER)
                 }
+
+                contextReceivers.addAll(convertContextReceivers(this@toFirProperty.contextReceivers))
             }.also {
                 if (!isLocal) {
                     fillDanglingConstraintsTo(it)
@@ -1751,6 +1769,12 @@ open class RawFirBuilder(
                         if (receiverTypeRef != null) {
                             annotations += extensionFunctionAnnotation
                         }
+
+                        contextReceiverTypeRefs.addAll(
+                            unwrappedElement.contextReceiversTypeReferences.mapNotNull {
+                                it.convertSafe()
+                            }
+                        )
                     }
                 }
                 is KtIntersectionType -> FirIntersectionTypeRefBuilder().apply {
