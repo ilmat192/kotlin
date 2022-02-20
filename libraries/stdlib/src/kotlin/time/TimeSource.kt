@@ -78,7 +78,7 @@ public interface TimeMark {
      * Note that the value returned by this function can change on subsequent invocations.
      * If the time source is monotonic, it can change only from `false` to `true`, namely, when the time mark becomes behind the current point of the time source.
      */
-    public /*final?*/ fun hasPassedNow(): Boolean = !elapsedNow().isNegative()
+    public fun hasPassedNow(): Boolean = !elapsedNow().isNegative()
 
     /**
      * Returns false if this time mark has not passed according to the time source from which this mark was taken.
@@ -95,6 +95,8 @@ value class DefaultTimeMark internal constructor(internal val reading: DefaultTi
     override fun elapsedNow(): Duration = MonotonicTimeSource.elapsedFrom(this)
     override fun plus(duration: Duration): DefaultTimeMark = MonotonicTimeSource.adjustReading(this, duration)
     override fun minus(duration: Duration): DefaultTimeMark = MonotonicTimeSource.adjustReading(this, -duration)
+    override fun hasPassedNow(): Boolean = !elapsedNow().isNegative()
+    override fun hasNotPassedNow(): Boolean = elapsedNow().isNegative()
 }
 
 internal expect class DefaultTimeMarkReading
