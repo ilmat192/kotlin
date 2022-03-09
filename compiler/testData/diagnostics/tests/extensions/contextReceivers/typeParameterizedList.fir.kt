@@ -13,6 +13,6 @@ fun main() {
         A<Int>().f()
     }
     with(listOf("1", "2", "3")) {
-        A<Int>().f()
+        <!NO_CONTEXT_RECEIVER!>A<Int>().f()<!>
     }
 }

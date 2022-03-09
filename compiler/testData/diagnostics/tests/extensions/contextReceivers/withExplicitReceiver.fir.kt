@@ -10,7 +10,7 @@ fun B.f() {}
 fun main() {
     val b = B()
 
-    b.f()
+    <!NO_CONTEXT_RECEIVER!>b.f()<!>
     with(A()) {
         b.f()
     }
