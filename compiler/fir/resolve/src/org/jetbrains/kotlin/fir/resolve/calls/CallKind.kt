@@ -16,6 +16,7 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CollectTypeVariableUsagesInfo,
         CheckDispatchReceiver,
         CheckExtensionReceiver,
+        CheckContextReceivers,
         CheckDslScopeViolation,
         CheckLowPriorityInOverloadResolution,
         PostponedVariablesInitializerResolutionStage,
@@ -43,6 +44,7 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CollectTypeVariableUsagesInfo,
         CheckDispatchReceiver,
         CheckExtensionReceiver,
+        CheckContextReceivers,
         CheckDslScopeViolation,
         CheckArguments,
         CheckCallModifiers,
@@ -113,6 +115,7 @@ class ResolutionSequenceBuilder(
     var mapTypeArguments: Boolean = false,
     var resolveCallableReferenceArguments: Boolean = false,
     var checkCallableReferenceExpectedType: Boolean = false,
+    val checkContextReceivers: Boolean = false,
 ) {
     fun build(): CallKind {
         val stages = mutableListOf<ResolutionStage>().apply {
@@ -129,6 +132,7 @@ class ResolutionSequenceBuilder(
             if (checkLowPriorityInOverloadResolution) add(CheckLowPriorityInOverloadResolution)
             if (initializePostponedVariables) add(PostponedVariablesInitializerResolutionStage)
             if (checkCallableReferenceExpectedType) add(CheckCallableReferenceExpectedType)
+            if (checkContextReceivers) add(CheckContextReceivers)
         }.toTypedArray()
         return CallKind.CustomForIde(*stages)
     }
