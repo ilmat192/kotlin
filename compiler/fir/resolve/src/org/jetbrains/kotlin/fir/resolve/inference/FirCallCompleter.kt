@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirFunction
+import org.jetbrains.kotlin.fir.declarations.builder.buildContextReceiver
 import org.jetbrains.kotlin.fir.declarations.builder.buildValueParameter
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.resolve.ResolutionMode
@@ -28,6 +29,7 @@ import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.resultType
 import org.jetbrains.kotlin.fir.resolve.typeFromCallee
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
+import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.fir.visitors.transformSingle
 import org.jetbrains.kotlin.name.Name
@@ -257,6 +259,7 @@ class FirCallCompleter(
         override fun analyzeAndGetLambdaReturnArguments(
             lambdaAtom: ResolvedLambdaAtom,
             receiverType: ConeKotlinType?,
+            contextReceivers: List<ConeKotlinType>,
             parameters: List<ConeKotlinType>,
             expectedReturnType: ConeKotlinType?,
             stubsForPostponedVariables: Map<TypeVariableMarker, StubTypeMarker>,
@@ -304,6 +307,18 @@ class FirCallCompleter(
                     lambdaArgument.receiverTypeRef?.resolvedTypeFromPrototype(it)
                 }
             )
+
+            if (contextReceivers.isNotEmpty()) {
+                lambdaArgument.replaceContextReceivers(
+                    contextReceivers.map { contextReceiverType ->
+                        buildContextReceiver {
+                            typeRef = buildResolvedTypeRef {
+                                type = contextReceiverType
+                            }
+                        }
+                    }
+                )
+            }
 
             val lookupTracker = session.lookupTracker
             lambdaArgument.valueParameters.forEachIndexed { index, parameter ->
