@@ -198,6 +198,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             +typeArguments.withTransform()
             +receivers
             +field("source", sourceElementType, nullable = true, withReplace = true)
+            +fieldList("contextReceiverArguments", expressionType, withReplace = true)
         }
 
         propertyAccessExpression.configure {
@@ -625,6 +626,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         thisReference.configure {
             +stringField("labelName", nullable = true)
             +field("boundSymbol", firBasedSymbolType, "*", nullable = true, withReplace = true)
+            +intField("contextReceiverNumber")
         }
 
         typeRef.configure {
