@@ -6,19 +6,12 @@
 package org.jetbrains.kotlin.backend.wasm.ir2wasm
 
 import org.jetbrains.kotlin.backend.wasm.WasmBackendContext
-import org.jetbrains.kotlin.backend.wasm.lower.WasmSignature
-import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
-import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
-import org.jetbrains.kotlin.ir.symbols.IrFieldSymbol
-import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
-import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
+import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.defaultType
-import org.jetbrains.kotlin.ir.types.getClass
 import org.jetbrains.kotlin.ir.types.isNothing
-import org.jetbrains.kotlin.ir.util.isFunction
 import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.wasm.ir.*
 
@@ -70,24 +63,12 @@ class WasmModuleCodegenContextImpl(
         wasmFragment.typeInfo.define(irClass, typeInfo)
     }
 
-    override fun generateInterfaceTable(irClass: IrClassSymbol, table: ConstantDataElement) {
-        wasmFragment.definedClassITableData.define(irClass, table)
-    }
-
     override fun registerInitFunction(wasmFunction: WasmFunction, priority: String) {
         wasmFragment.initFunctions += WasmCompiledModuleFragment.FunWithPriority(wasmFunction, priority)
     }
 
     override fun addExport(wasmExport: WasmExport<*>) {
         wasmFragment.exports += wasmExport
-    }
-
-    override fun registerVirtualFunction(irFunction: IrSimpleFunctionSymbol) {
-        wasmFragment.virtualFunctions += irFunction
-    }
-
-    override fun registerInterface(irInterface: IrClassSymbol) {
-        wasmFragment.interfaces += irInterface
     }
 
     override fun registerClass(irClass: IrClassSymbol) {
@@ -98,33 +79,28 @@ class WasmModuleCodegenContextImpl(
         wasmFragment.functions.define(irFunction, wasmFunction)
     }
 
-    override fun defineGlobal(irField: IrFieldSymbol, wasmGlobal: WasmGlobal) {
-        wasmFragment.globals.define(irField, wasmGlobal)
+    override fun defineGlobalField(irField: IrFieldSymbol, wasmGlobal: WasmGlobal) {
+        wasmFragment.globalFields.define(irField, wasmGlobal)
+    }
+
+    override fun defineGlobalVTable(irClass: IrClassSymbol, wasmGlobal: WasmGlobal) {
+        wasmFragment.globalVTables.define(irClass, wasmGlobal)
+    }
+
+    override fun defineGlobalClassITable(irClass: IrClassSymbol, wasmGlobal: WasmGlobal) {
+        wasmFragment.globalClassITables.define(irClass, wasmGlobal)
     }
 
     override fun defineGcType(irClass: IrClassSymbol, wasmType: WasmTypeDeclaration) {
         wasmFragment.gcTypes.define(irClass, wasmType)
     }
 
+    override fun defineVTableGcType(irClass: IrClassSymbol, wasmType: WasmTypeDeclaration) {
+        wasmFragment.vTableGcTypes.define(irClass, wasmType)
+    }
+
     override fun defineFunctionType(irFunction: IrFunctionSymbol, wasmFunctionType: WasmFunctionType) {
         wasmFragment.functionTypes.define(irFunction, wasmFunctionType)
-    }
-
-    override fun defineInterfaceMethodTable(irFunction: IrFunctionSymbol, wasmTable: WasmTable) {
-        wasmFragment.interfaceMethodTables.define(irFunction, wasmTable)
-    }
-
-    override fun referenceInterfaceImplementationId(
-        interfaceImplementation: InterfaceImplementation
-    ): WasmSymbol<Int> =
-        wasmFragment.referencedInterfaceImplementationId.reference(interfaceImplementation)
-
-
-    override fun registerInterfaceImplementationMethod(
-        interfaceImplementation: InterfaceImplementation,
-        table: Map<IrFunctionSymbol, WasmSymbol<WasmFunction>?>
-    ) {
-        wasmFragment.interfaceImplementationsMethods[interfaceImplementation] = table
     }
 
     private val classMetadataCache = mutableMapOf<IrClassSymbol, ClassMetadata>()
@@ -139,18 +115,56 @@ class WasmModuleCodegenContextImpl(
             )
         }
 
+    private val interfaceMetadataCache = mutableMapOf<IrClassSymbol, InterfaceMetadata>()
+    override fun getInterfaceMetadata(irClass: IrClassSymbol): InterfaceMetadata =
+        interfaceMetadataCache.getOrPut(irClass) { InterfaceMetadata(irClass.owner, backendContext.irBuiltIns) }
+
     override fun referenceFunction(irFunction: IrFunctionSymbol): WasmSymbol<WasmFunction> =
         wasmFragment.functions.reference(irFunction)
 
-    override fun referenceGlobal(irField: IrFieldSymbol): WasmSymbol<WasmGlobal> =
-        wasmFragment.globals.reference(irField)
+    override fun referenceGlobalField(irField: IrFieldSymbol): WasmSymbol<WasmGlobal> =
+        wasmFragment.globalFields.reference(irField)
 
-    override fun referenceGcType(irClass: IrClassSymbol): WasmSymbol<WasmTypeDeclaration> {
+    override fun referenceGlobalVTable(irClass: IrClassSymbol): WasmSymbol<WasmGlobal> =
+        wasmFragment.globalVTables.reference(irClass)
+
+    override fun referenceGlobalClassITable(irClass: IrClassSymbol): WasmSymbol<WasmGlobal> =
+        wasmFragment.globalClassITables.reference(irClass)
+
+    private fun referenceNonNothingType(
+        irClass: IrClassSymbol,
+        from: WasmCompiledModuleFragment.ReferencableAndDefinable<IrClassSymbol, WasmTypeDeclaration>
+    ): WasmSymbol<WasmTypeDeclaration> {
         val type = irClass.defaultType
         require(!type.isNothing()) {
             "Can't reference Nothing type"
         }
-        return wasmFragment.gcTypes.reference(irClass)
+        return from.reference(irClass)
+    }
+
+    override fun referenceGcType(irClass: IrClassSymbol): WasmSymbol<WasmTypeDeclaration> =
+        referenceNonNothingType(irClass, wasmFragment.gcTypes)
+
+    override fun referenceVTableGcType(irClass: IrClassSymbol): WasmSymbol<WasmTypeDeclaration> =
+        referenceNonNothingType(irClass, wasmFragment.vTableGcTypes)
+
+    override fun referenceClassITableGcTypeForInterface(irClass: IrClassSymbol): WasmSymbol<WasmTypeDeclaration> =
+        referenceNonNothingType(irClass, wasmFragment.classITableGcType)
+
+    override fun defineClassITableGcTypeForInterface(irClass: IrClassSymbol, wasmType: WasmTypeDeclaration) {
+        wasmFragment.classITableGcType.define(irClass, wasmType)
+    }
+
+    override fun referenceClassITableInterfaceSlot(irClass: IrClassSymbol): WasmSymbol<Int> {
+        val type = irClass.defaultType
+        require(!type.isNothing()) {
+            "Can't reference Nothing type"
+        }
+        return wasmFragment.classITableInterfaceSlot.reference(irClass)
+    }
+
+    override fun defineClassITableInterfaceSlot(irClass: IrClassSymbol, slot: Int) {
+        wasmFragment.classITableInterfaceSlot.define(irClass, slot)
     }
 
     override fun referenceFunctionType(irFunction: IrFunctionSymbol): WasmSymbol<WasmFunctionType> =
@@ -159,35 +173,14 @@ class WasmModuleCodegenContextImpl(
     override fun referenceClassId(irClass: IrClassSymbol): WasmSymbol<Int> =
         wasmFragment.classIds.reference(irClass)
 
-    override fun referenceInterfaceTableAddress(irClass: IrClassSymbol): WasmSymbol<Int> {
-        if (irClass.owner.modality == Modality.ABSTRACT) return WasmSymbol(-1)
-        return wasmFragment.referencedClassITableAddresses.reference(irClass)
-    }
-
-
     override fun referenceInterfaceId(irInterface: IrClassSymbol): WasmSymbol<Int> {
         return wasmFragment.interfaceId.reference(irInterface)
-    }
-
-    override fun referenceVirtualFunctionId(irFunction: IrSimpleFunctionSymbol): WasmSymbol<Int> {
-        if (irFunction.owner.modality == Modality.ABSTRACT)
-            error("Abstract functions are not stored in table")
-        return wasmFragment.virtualFunctionId.reference(irFunction)
-    }
-
-    override fun referenceSignatureId(signature: WasmSignature): WasmSymbol<Int> {
-        wasmFragment.signatures.add(signature)
-        return wasmFragment.signatureId.reference(signature)
-    }
-
-    override fun referenceInterfaceTable(irFunction: IrFunctionSymbol): WasmSymbol<WasmTable> {
-        return wasmFragment.interfaceMethodTables.reference(irFunction)
     }
 
     override fun getStructFieldRef(field: IrField): WasmSymbol<Int> {
         val klass = field.parentAsClass
         val metadata = getClassMetadata(klass.symbol)
-        val fieldId = metadata.fields.indexOf(field)
+        val fieldId = metadata.fields.indexOf(field) + 2 //Implicit vtable and vtable field
         return WasmSymbol(fieldId)
     }
 
@@ -196,3 +189,4 @@ class WasmModuleCodegenContextImpl(
             WasmCompiledModuleFragment.JsCodeSnippet(importName = importName, jsCode = jsCode)
     }
 }
+
