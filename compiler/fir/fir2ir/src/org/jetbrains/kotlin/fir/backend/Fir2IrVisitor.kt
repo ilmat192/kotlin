@@ -23,7 +23,6 @@ import org.jetbrains.kotlin.fir.declarations.utils.isSynthetic
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirElseIfTrueCondition
-import org.jetbrains.kotlin.fir.expressions.impl.FirNoReceiverExpression
 import org.jetbrains.kotlin.fir.expressions.impl.FirStubStatement
 import org.jetbrains.kotlin.fir.expressions.impl.FirUnitExpression
 import org.jetbrains.kotlin.fir.references.FirReference
@@ -452,13 +451,40 @@ class Fir2IrVisitor(
             val dispatchReceiver = conversionScope.dispatchReceiverParameter(irClass)
             if (dispatchReceiver != null) {
                 return thisReceiverExpression.convertWithOffsets { startOffset, endOffset ->
-                    IrGetValueImpl(startOffset, endOffset, dispatchReceiver.type, dispatchReceiver.symbol)
+                    val thisRef = IrGetValueImpl(startOffset, endOffset, dispatchReceiver.type, dispatchReceiver.symbol)
+                    if (calleeReference.contextReceiverNumber != -1) {
+                        val contextReceivers =
+                            components.classifierStorage.getFieldsWithContextReceiversForClass(irClass)
+                                ?: error("Not defined context receivers for $irClass")
+
+                        IrGetFieldImpl(
+                            startOffset, endOffset, contextReceivers[calleeReference.contextReceiverNumber].symbol,
+                            thisReceiverExpression.typeRef.toIrType(),
+                            thisRef,
+                        )
+                    } else {
+                        thisRef
+                    }
                 }
             }
         } else if (boundSymbol is FirCallableSymbol) {
-            val receiverSymbol =
-                calleeReference.toSymbolForCall(FirNoReceiverExpression, session, classifierStorage, declarationStorage, conversionScope)
-            val receiver = (receiverSymbol?.owner as? IrSimpleFunction)?.extensionReceiverParameter
+
+            val irFunction = when (boundSymbol) {
+                is FirFunctionSymbol -> declarationStorage.getIrFunctionSymbol(boundSymbol).owner
+                is FirPropertySymbol -> {
+                    val property = declarationStorage.getIrPropertySymbol(boundSymbol).owner as? IrProperty
+                    property?.let { conversionScope.parentAccessorOfPropertyFromStack(it) }
+                }
+                else -> null
+            }
+
+            val receiver = irFunction?.let { function ->
+                if (calleeReference.contextReceiverNumber != -1)
+                    function.valueParameters[calleeReference.contextReceiverNumber]
+                else
+                    function.extensionReceiverParameter
+            }
+
             if (receiver != null) {
                 return thisReceiverExpression.convertWithOffsets { startOffset, endOffset ->
                     IrGetValueImpl(startOffset, endOffset, receiver.type, receiver.symbol)
