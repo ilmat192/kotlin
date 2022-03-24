@@ -122,6 +122,7 @@ class FirCallResolver(
                 dispatchReceiver = candidate.dispatchReceiverExpression()
                 extensionReceiver = candidate.chosenExtensionReceiverExpression()
                 argumentList = candidate.callInfo.argumentList
+                contextReceiverArguments.addAll(candidate.contextReceiverArguments())
             }
         } else {
             resultExpression
@@ -388,6 +389,7 @@ class FirCallResolver(
             val candidate = reducedCandidates.single()
             resultExpression = resultExpression.transformDispatchReceiver(StoreReceiver, candidate.dispatchReceiverExpression())
             resultExpression = resultExpression.transformExtensionReceiver(StoreReceiver, candidate.chosenExtensionReceiverExpression())
+            resultExpression.replaceContextReceiverArguments(candidate.contextReceiverArguments())
         }
         if (resultExpression is FirExpression) transformer.storeTypeFromCallee(resultExpression)
         return resultExpression
