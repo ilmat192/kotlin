@@ -836,7 +836,6 @@ open class RawFirBuilder(
                     delegatedSelfTypeRef ?: delegatedSuperTypeRef!!,
                     owner = this,
                     containerTypeParameters,
-                    body = null
                 )
                 container.declarations += firPrimaryConstructor
             }
@@ -850,7 +849,6 @@ open class RawFirBuilder(
             delegatedSelfTypeRef: FirTypeRef,
             owner: KtClassOrObject,
             ownerTypeParameters: List<FirTypeParameterRef>,
-            body: FirBlock? = null
         ): FirConstructor {
             val constructorCall = superTypeCallEntry?.toFirSourceElement()
             val constructorSource = this?.toFirSourceElement()
@@ -895,7 +893,7 @@ open class RawFirBuilder(
                 this.contextReceivers.addAll(convertContextReceivers(owner.contextReceivers))
                 this@toFirConstructor?.extractAnnotationsTo(this)
                 this@toFirConstructor?.extractValueParametersTo(this, ValueParameterDeclaration.PRIMARY_CONSTRUCTOR)
-                this.body = body
+                this.body = null
             }.apply {
                 containingClassForStaticMemberAttr = currentDispatchReceiverType()!!.lookupTag
             }
