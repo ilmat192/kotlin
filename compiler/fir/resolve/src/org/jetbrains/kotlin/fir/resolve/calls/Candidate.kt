@@ -107,6 +107,7 @@ class Candidate(
         other as Candidate
 
         if (symbol != other.symbol) return false
+        if (dispatchReceiverValue != other.dispatchReceiverValue) return false
 
         return true
     }
