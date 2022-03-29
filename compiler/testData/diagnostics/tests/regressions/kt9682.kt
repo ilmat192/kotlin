@@ -1,3 +1,4 @@
+// FIR_IDENTICAL
 // KT-9682 Overload Resolution Ambiguity after casting to Interface
 
 open class Foo {

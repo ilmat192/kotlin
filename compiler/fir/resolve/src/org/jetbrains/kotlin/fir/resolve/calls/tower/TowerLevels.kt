@@ -9,19 +9,16 @@ import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.FirConstructor
 import org.jetbrains.kotlin.fir.declarations.getAnnotationByClassId
 import org.jetbrains.kotlin.fir.declarations.utils.isInner
+import org.jetbrains.kotlin.fir.expressions.FirExpressionWithSmartcast
 import org.jetbrains.kotlin.fir.expressions.builder.buildResolvedQualifier
-import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
-import org.jetbrains.kotlin.fir.resolve.ScopeSession
+import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.calls.*
-import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.resultType
-import org.jetbrains.kotlin.fir.resolve.typeForQualifier
-import org.jetbrains.kotlin.fir.scopes.FirScope
-import org.jetbrains.kotlin.fir.scopes.FirTypeScope
+import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.scopes.impl.FirDefaultStarImportingScope
+import org.jetbrains.kotlin.fir.scopes.impl.FirStandardOverrideChecker
 import org.jetbrains.kotlin.fir.scopes.impl.importedFromObjectData
-import org.jetbrains.kotlin.fir.scopes.processClassifiersByName
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
@@ -29,6 +26,7 @@ import org.jetbrains.kotlin.name.StandardClassIds.Annotations.HidesMembers
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.SmartList
+import org.jetbrains.kotlin.utils.addToStdlib.runIf
 
 enum class ProcessResult {
     FOUND, SCOPE_EMPTY;
@@ -87,13 +85,42 @@ class MemberScopeTowerLevel(
     private val implicitExtensionInvokeMode: Boolean = false,
     private val scopeSession: ScopeSession
 ) : SessionBasedTowerLevel(session) {
-    private fun <T : FirBasedSymbol<*>> processMembers(
+    private fun <T : FirCallableSymbol<*>> processMembers(
         output: TowerScopeLevelProcessor<T>,
         processScopeMembers: FirScope.(processor: (T) -> Unit) -> Unit
     ): ProcessResult {
         val scope = dispatchReceiverValue.scope(session, scopeSession) ?: return ProcessResult.SCOPE_EMPTY
         var (empty, candidates) = scope.collectCandidates(processScopeMembers)
-        consumeCandidates(output, candidates.map { scope to it })
+
+        val typeWithoutSmartcast = (dispatchReceiverValue.receiverExpression as? FirExpressionWithSmartcast)?.let {
+            runIf(it.isStable) { it.originalType.coneType }
+        }
+        if (typeWithoutSmartcast == null) {
+            // no smartcast, just consume candidates
+            consumeCandidates(output, candidates)
+        } else {
+            val originalScope = typeWithoutSmartcast.scope(session, scopeSession, bodyResolveComponents.returnTypeCalculator.fakeOverrideTypeCalculator)
+            if (originalScope == null) {
+                consumeCandidates(output, candidates)
+            } else {
+                val result = mutableListOf<MemberWithBaseScope<T>>()
+                originalScope.collectCandidates(processScopeMembers).let { (isEmpty, originalCandidates) ->
+                    empty = empty && isEmpty
+                    result += originalCandidates
+                }
+                result += candidates
+
+                result.retainAll(
+                    session.overrideService.selectMostSpecificInEachOverridableGroup(
+                        result,
+                        FirStandardOverrideChecker(session),
+                        bodyResolveComponents.returnTypeCalculator,
+                        approximateCapturedTypes = true
+                    )
+                )
+                consumeCandidates(output, result)
+            }
+        }
 
         if (extensionReceiver == null) {
             val withSynthetic = FirSyntheticPropertiesScope(session, scope)
@@ -105,36 +132,32 @@ class MemberScopeTowerLevel(
         return if (empty) ProcessResult.SCOPE_EMPTY else ProcessResult.FOUND
     }
 
-    private fun <T : FirBasedSymbol<*>> FirTypeScope.collectCandidates(
+    private fun <T : FirCallableSymbol<*>> FirTypeScope.collectCandidates(
         processScopeMembers: FirScope.(processor: (T) -> Unit) -> Unit
-    ): Pair<Boolean, List<T>> {
+    ): Pair<Boolean, List<MemberWithBaseScope<T>>> {
         var empty = true
-        val result = mutableListOf<T>()
+        val result = mutableListOf<MemberWithBaseScope<T>>()
         processScopeMembers { candidate ->
             empty = false
-            if (candidate is FirCallableSymbol<*> &&
-                (implicitExtensionInvokeMode || candidate.hasConsistentExtensionReceiver(extensionReceiver))
-            ) {
+            if (implicitExtensionInvokeMode || candidate.hasConsistentExtensionReceiver(extensionReceiver)) {
                 val fir = candidate.fir
                 if ((fir as? FirConstructor)?.isInner == false) {
                     return@processScopeMembers
                 }
-                result += candidate
+                result += MemberWithBaseScope(candidate, this)
             } else if (candidate is FirClassLikeSymbol<*>) {
-                result += candidate
+                result += MemberWithBaseScope(candidate, this)
             }
         }
         return empty to result
     }
 
-    private fun <T : FirBasedSymbol<*>> consumeCandidates(
+    private fun <T : FirCallableSymbol<*>> consumeCandidates(
         output: TowerScopeLevelProcessor<T>,
-        candidatesWithScope: List<Pair<FirScope, T>>
+        candidatesWithScope: List<MemberWithBaseScope<T>>
     ) {
-        for ((scope, candidate) in candidatesWithScope) {
-            if (candidate is FirCallableSymbol<*> &&
-                (implicitExtensionInvokeMode || candidate.hasConsistentExtensionReceiver(extensionReceiver))
-            ) {
+        for ((candidate, scope) in candidatesWithScope) {
+            if (implicitExtensionInvokeMode || candidate.hasConsistentExtensionReceiver(extensionReceiver)) {
                 output.consumeCandidate(
                     candidate, dispatchReceiverValue,
                     extensionReceiverValue = extensionReceiver,

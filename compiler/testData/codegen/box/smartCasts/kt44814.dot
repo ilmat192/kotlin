@@ -589,9 +589,9 @@ digraph kt44814_kt {
                 subgraph cluster_61 {
                     color=blue
                     187 [label="Enter block [7]"];
-                    188 [label="Access variable R|/FirLightSourceElement.lighterASTNode| [9]"];
-                    189 [label="Access variable R|/FirLightSourceElement.treeStructure| [9]"];
-                    190 [label="Function call: this@R|/FirModifierList.Companion.getModifierList|.R|/FirLightSourceElement.lighterASTNode|.R|/LighterASTNode.getChildren|(...) [8]"];
+                    188 [label="Access variable R|/FirSourceElement.lighterASTNode| [9]"];
+                    189 [label="Access variable R|/FirSourceElement.treeStructure| [9]"];
+                    190 [label="Function call: this@R|/FirModifierList.Companion.getModifierList|.R|/FirSourceElement.lighterASTNode|.R|/LighterASTNode.getChildren|(...) [8]"];
                     191 [label="Postponed enter to lambda [8]"];
                     subgraph cluster_62 {
                         color=blue
@@ -611,7 +611,7 @@ digraph kt44814_kt {
                         247 [label="Exit function anonymousFunction [9]" style="filled" fillcolor=red];
                     }
                     192 [label="Postponed exit from lambda [8]"];
-                    193 [label="Function call: this@R|/FirModifierList.Companion.getModifierList|.R|/FirLightSourceElement.lighterASTNode|.R|/LighterASTNode.getChildren|(...).R|kotlin/collections/find|<R|LighterASTNode?|>(...) [7]"];
+                    193 [label="Function call: this@R|/FirModifierList.Companion.getModifierList|.R|/FirSourceElement.lighterASTNode|.R|/LighterASTNode.getChildren|(...).R|kotlin/collections/find|<R|LighterASTNode?|>(...) [7]"];
                     194 [label="Exit lhs of ?: [7]"];
                     195 [label="Enter rhs of ?: [7]"];
                     196 [label="Const: Null(null) [7]"];
@@ -621,7 +621,7 @@ digraph kt44814_kt {
                     200 [label="Exit ?: [7]"];
                     201 [label="Variable declaration: lval modifierListNode: R|LighterASTNode| [7]"];
                     202 [label="Access variable R|<local>/modifierListNode| [8]"];
-                    203 [label="Access variable R|/FirLightSourceElement.treeStructure| [8]"];
+                    203 [label="Access variable R|/FirSourceElement.treeStructure| [8]"];
                     204 [label="Function call: R|/FirModifierList.FirLightModifierList.FirLightModifierList|(...) [7]"];
                     205 [label="Exit block [7]"];
                 }
@@ -676,11 +676,11 @@ digraph kt44814_kt {
         ) }
     }
     ($subj$ is R|FirLightSourceElement|) ->  {
-        lval modifierListNode: R|LighterASTNode| = this@R|/FirModifierList.Companion.getModifierList|.R|/FirLightSourceElement.lighterASTNode|.R|/LighterASTNode.getChildren|(this@R|/FirModifierList.Companion.getModifierList|.R|/FirLightSourceElement.treeStructure|).R|kotlin/collections/find|<R|LighterASTNode?|>(<L> = find@fun <anonymous>(it: R|LighterASTNode?|): R|kotlin/Boolean| <inline=Inline, kind=UNKNOWN>  {
+        lval modifierListNode: R|LighterASTNode| = this@R|/FirModifierList.Companion.getModifierList|.R|/FirSourceElement.lighterASTNode|.R|/LighterASTNode.getChildren|(this@R|/FirModifierList.Companion.getModifierList|.R|/FirSourceElement.treeStructure|).R|kotlin/collections/find|<R|LighterASTNode?|>(<L> = find@fun <anonymous>(it: R|LighterASTNode?|): R|kotlin/Boolean| <inline=Inline, kind=UNKNOWN>  {
             ^ ==(R|<local>/it|?.{ $subj$.R|/LighterASTNode.tokenType| }, Q|TokenType|.R|/TokenType.Companion.MODIFIER_LIST|)
         }
         ) ?: ^getModifierList Null(null)
-        R|/FirModifierList.FirLightModifierList.FirLightModifierList|(R|<local>/modifierListNode|, this@R|/FirModifierList.Companion.getModifierList|.R|/FirLightSourceElement.treeStructure|)
+        R|/FirModifierList.FirLightModifierList.FirLightModifierList|(R|<local>/modifierListNode|, this@R|/FirModifierList.Companion.getModifierList|.R|/FirSourceElement.treeStructure|)
     }
 }
  [3]"];
