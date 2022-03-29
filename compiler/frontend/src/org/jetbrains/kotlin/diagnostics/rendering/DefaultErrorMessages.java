@@ -1107,6 +1107,7 @@ public class DefaultErrorMessages {
         MAP.put(RETURN_FOR_BUILT_IN_SUSPEND, "Using implicit label for this lambda is prohibited");
         MAP.put(MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND, "Calls having a form of ''suspend {}'' are deprecated because ''suspend'' in the context will have a meaning of a modifier. Add empty argument list to the call: ''suspend() { ... }''");
         MAP.put(MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND_FUN, "Calls having a form of ''suspend fun'' are deprecated because ''suspend'' in the context will have a meaning of a modifier. Surround the argument of the call with parens: ''suspend(fun() { ... })''");
+        MAP.put(MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND_FUN_ERROR, "Calls having a form of ''suspend fun'' are deprecated because ''suspend'' in the context will have a meaning of a modifier. Surround the argument of the call with parens: ''suspend(fun() { ... })''");
 
         MAP.put(PLUGIN_ERROR, "{0}", (d, c) -> d.getText());
         MAP.put(PLUGIN_WARNING, "{0}", (d, c) -> d.getText());

@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.resolve.calls.checkers
 
 import com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.diagnostics.Errors
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.resolve.calls.util.isInfixCall
@@ -38,7 +39,11 @@ object LambdaWithSuspendModifierCallChecker : CallChecker {
                         context.trace.report(Errors.MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND.on(reportOn))
                     } else {
                         require(call.isInfixWithRightFun())
-                        context.trace.report(Errors.MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND_FUN.on(reportOn))
+                        if (context.languageVersionSettings.supportsFeature(LanguageFeature.ModifierNonBuiltinSuspendFunError)) {
+                            context.trace.report(Errors.MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND_FUN_ERROR.on(reportOn))
+                        } else {
+                            context.trace.report(Errors.MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND_FUN.on(reportOn))
+                        }
                     }
                 }
             }
