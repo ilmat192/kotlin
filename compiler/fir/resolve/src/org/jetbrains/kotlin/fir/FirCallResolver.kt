@@ -36,6 +36,7 @@ import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirAbstractBod
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirExpressionsResolveTransformer
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.resultType
 import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
+import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
@@ -171,18 +172,23 @@ class FirCallResolver(
             components: BodyResolveComponents,
             resolutionStageRunner: ResolutionStageRunner
         ) : CandidateCollector(components, resolutionStageRunner) {
-            private val allCandidatesSet = mutableSetOf<Candidate>()
+            // Basically, there might be the cases when candidates with the same symbols are treated as different via its `equals`,
+            // but here in case of IDE support (analysis API) we just preserve the old behavior, so we only store the first for each
+            // different symbol
+            private val allCandidatesGroupBySymbol = mutableMapOf<FirBasedSymbol<*>, Candidate>()
 
             override fun consumeCandidate(group: TowerGroup, candidate: Candidate, context: ResolutionContext): CandidateApplicability {
-                allCandidatesSet += candidate
+                if (candidate.symbol !in allCandidatesGroupBySymbol) {
+                    allCandidatesGroupBySymbol[candidate.symbol] = candidate
+                }
                 return super.consumeCandidate(group, candidate, context)
             }
 
             // We want to get candidates at all tower levels.
             override fun shouldStopAtTheLevel(group: TowerGroup): Boolean = false
 
-            val allCandidates: List<Candidate>
-                get() = allCandidatesSet.toList()
+            val allCandidates: Collection<Candidate>
+                get() = allCandidatesGroupBySymbol.values
         }
 
         val collector = AllCandidatesCollector(components, components.resolutionStageRunner)
