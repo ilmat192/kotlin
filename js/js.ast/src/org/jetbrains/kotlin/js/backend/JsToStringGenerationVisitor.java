@@ -1139,7 +1139,7 @@ public class JsToStringGenerationVisitor extends JsVisitor {
         }
 
         boolean notFirst = false;
-        for (Map.Entry<String, Object> entry : comment.getTags().entrySet()) {
+        for (JsDocComment.JsDocTag entry : comment.getTags()) {
             if (notFirst) {
                 newline();
             } else {
@@ -1153,7 +1153,7 @@ public class JsToStringGenerationVisitor extends JsVisitor {
 
             space();
             p.print('@');
-            p.print(entry.getKey());
+            p.print(entry.getLabel());
             Object value = entry.getValue();
             if (value != null) {
                 space();
