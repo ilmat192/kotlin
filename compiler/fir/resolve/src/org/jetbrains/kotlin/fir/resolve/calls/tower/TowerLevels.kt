@@ -99,7 +99,11 @@ class MemberScopeTowerLevel(
             // no smartcast, just consume candidates
             consumeCandidates(output, candidates)
         } else {
-            val originalScope = typeWithoutSmartcast.scope(session, scopeSession, bodyResolveComponents.returnTypeCalculator.fakeOverrideTypeCalculator)
+            val originalScope = typeWithoutSmartcast.scope(
+                session,
+                scopeSession,
+                bodyResolveComponents.returnTypeCalculator.fakeOverrideTypeCalculator
+            )
             if (originalScope == null) {
                 consumeCandidates(output, candidates)
             } else {
@@ -110,13 +114,23 @@ class MemberScopeTowerLevel(
                 }
                 result += candidates
 
-                result.retainAll(
+                val elements = session.overrideService.selectMostSpecificInEachOverridableGroup(
+                    result,
+                    FirStandardOverrideChecker(session),
+                    bodyResolveComponents.returnTypeCalculator,
+                    modeForResolutionOfMembersOnReceiverWithSmartcast = true
+                )
+
+                if (elements.size > 1) {
                     session.overrideService.selectMostSpecificInEachOverridableGroup(
                         result,
                         FirStandardOverrideChecker(session),
                         bodyResolveComponents.returnTypeCalculator,
-                        approximateCapturedTypes = true
+                        modeForResolutionOfMembersOnReceiverWithSmartcast = true
                     )
+                }
+                result.retainAll(
+                    elements
                 )
                 consumeCandidates(output, result)
             }

@@ -307,7 +307,7 @@ class FirTypeIntersectionScopeContext(
         }
 
         val realOverridden = extractedOverridden.flatMap { realOverridden(it.member, it.baseScope, processDirectOverridden) }
-        val filteredOverridden = filterOutOverridden(realOverridden, processDirectOverridden)
+        val filteredOverridden = filterOutOverridden(realOverridden, processDirectOverridden, deep = false)
 
         return filteredOverridden.minOf { (it.member.fir as FirMemberDeclaration).modality ?: Modality.ABSTRACT }
     }

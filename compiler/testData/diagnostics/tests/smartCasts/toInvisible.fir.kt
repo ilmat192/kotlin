@@ -33,7 +33,7 @@ import a.AImpl
 fun test1(a: A) {
     if (a is AImpl) {
         (a as A).b().bar() // OK
-        a.<!OVERLOAD_RESOLUTION_AMBIGUITY!>b<!>().<!UNRESOLVED_REFERENCE!>bar<!>()
+        a.b().<!UNRESOLVED_REFERENCE!>bar<!>()
     }
 }
 

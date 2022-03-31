@@ -25201,6 +25201,12 @@ public class FirOldFrontendDiagnosticsWithLightTreeTestGenerated extends Abstrac
             }
 
             @Test
+            @TestMetadata("smartcastToMoreSpecificProperty.kt")
+            public void testSmartcastToMoreSpecificProperty() throws Exception {
+                runTest("compiler/testData/diagnostics/tests/resolve/smartcastToMoreSpecificProperty.kt");
+            }
+
+            @Test
             @TestMetadata("superInvoke.kt")
             public void testSuperInvoke() throws Exception {
                 runTest("compiler/testData/diagnostics/tests/resolve/superInvoke.kt");

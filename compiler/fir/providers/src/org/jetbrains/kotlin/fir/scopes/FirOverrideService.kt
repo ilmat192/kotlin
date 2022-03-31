@@ -9,15 +9,13 @@ import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.FirSessionComponent
-import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirPropertyAccessor
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
+import org.jetbrains.kotlin.fir.declarations.FirVariable
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
-import org.jetbrains.kotlin.fir.resolve.substitution.AbstractConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.transformers.ReturnTypeCalculator
 import org.jetbrains.kotlin.fir.scopes.impl.buildSubstitutorForOverridesCheck
 import org.jetbrains.kotlin.fir.scopes.impl.similarFunctionsOrBothProperties
-import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.types.AbstractTypeChecker
@@ -27,13 +25,28 @@ import org.jetbrains.kotlin.utils.SmartSet
 import java.util.*
 
 class FirOverrideService(val session: FirSession) : FirSessionComponent {
-    private val approximationSubstitutor = ApproximationSubstitutor()
 
+    /*
+     * `modeForResolutionOfMembersOnReceiverWithSmartcast` indicates that
+     *   specificity of members is called from MemberScopeTowerLevel
+     *   to determine should we resolve to member from smartcasted type
+     *   of to original member.
+     *
+     * This mode affects two things:
+     *   1. Return types of declarations should be aprroximated to get rid of
+     *      captured types which can exists during call resolution
+     *   2. Even if we compare two var properties we still need to check
+     *      if return type of one is subtype of another, not equal to it,
+     *      because during call resolution we choose property with most
+     *      specific type even if this property is used as rhs of assignment
+     *
+     *      TODO: In future this should be changed
+     */
     fun <D : FirCallableSymbol<*>> selectMostSpecificInEachOverridableGroup(
         members: Collection<MemberWithBaseScope<D>>,
         overrideChecker: FirOverrideChecker,
         returnTypeCalculator: ReturnTypeCalculator,
-        approximateCapturedTypes: Boolean
+        modeForResolutionOfMembersOnReceiverWithSmartcast: Boolean
     ): Collection<MemberWithBaseScope<D>> {
         if (members.size <= 1) return members
         val queue = LinkedList(members)
@@ -51,10 +64,10 @@ class FirOverrideService(val session: FirSession) : FirSessionComponent {
                 continue
             }
 
-            val mostSpecific = selectMostSpecificMember(overridableGroup, returnTypeCalculator, approximateCapturedTypes)
+            val mostSpecific = selectMostSpecificMember(overridableGroup, returnTypeCalculator, modeForResolutionOfMembersOnReceiverWithSmartcast)
 
             overridableGroup.filterNotTo(conflictedHandles) {
-                isMoreSpecific(mostSpecific.member, it.member, returnTypeCalculator, approximateCapturedTypes)
+                isMoreSpecific(mostSpecific.member, it.member, returnTypeCalculator, modeForResolutionOfMembersOnReceiverWithSmartcast)
             }
 
             if (conflictedHandles.isNotEmpty()) {
@@ -95,7 +108,7 @@ class FirOverrideService(val session: FirSession) : FirSessionComponent {
     fun <D : FirCallableSymbol<*>> selectMostSpecificMember(
         overridables: Collection<MemberWithBaseScope<D>>,
         returnTypeCalculator: ReturnTypeCalculator,
-        approximateCapturedTypes: Boolean = false
+        modeForResolutionOfMembersOnReceiverWithSmartcast: Boolean = false
     ): MemberWithBaseScope<D> {
         require(overridables.isNotEmpty()) { "Should have at least one overridable symbol" }
         if (overridables.size == 1) {
@@ -106,12 +119,12 @@ class FirOverrideService(val session: FirSession) : FirSessionComponent {
         var transitivelyMostSpecific: MemberWithBaseScope<D> = overridables.first()
 
         for (candidate in overridables) {
-            if (overridables.all { isMoreSpecific(candidate.member, it.member, returnTypeCalculator, approximateCapturedTypes) }) {
+            if (overridables.all { isMoreSpecific(candidate.member, it.member, returnTypeCalculator, modeForResolutionOfMembersOnReceiverWithSmartcast) }) {
                 candidates.add(candidate)
             }
 
-            if (isMoreSpecific(candidate.member, transitivelyMostSpecific.member, returnTypeCalculator, approximateCapturedTypes) &&
-                !isMoreSpecific(transitivelyMostSpecific.member, candidate.member, returnTypeCalculator, approximateCapturedTypes)
+            if (isMoreSpecific(candidate.member, transitivelyMostSpecific.member, returnTypeCalculator, modeForResolutionOfMembersOnReceiverWithSmartcast) &&
+                !isMoreSpecific(transitivelyMostSpecific.member, candidate.member, returnTypeCalculator, modeForResolutionOfMembersOnReceiverWithSmartcast)
             ) {
                 transitivelyMostSpecific = candidate
             }
@@ -134,11 +147,12 @@ class FirOverrideService(val session: FirSession) : FirSessionComponent {
         a: FirCallableSymbol<*>,
         b: FirCallableSymbol<*>,
         returnTypeCalculator: ReturnTypeCalculator,
-        approximateCapturedTypes: Boolean
+        modeForResolutionOfMembersOnReceiverWithSmartcast: Boolean
     ): Boolean {
         fun ConeKotlinType.approximateIfNeeded(): ConeKotlinType {
-            return if (approximateCapturedTypes) {
-                approximationSubstitutor.substituteOrSelf(this)
+            return if (modeForResolutionOfMembersOnReceiverWithSmartcast) {
+                session.typeApproximator.approximateToSuperType(this, TypeApproximatorConfiguration.InternalTypesApproximation) ?: this
+//                approximationSubstitutor.substituteOrSelf(this)
             } else {
                 this
             }
@@ -168,12 +182,12 @@ class FirOverrideService(val session: FirSession) : FirSessionComponent {
             require(bFir is FirSimpleFunction) { "b is " + b.javaClass }
             return isTypeMoreSpecific(aReturnType, bReturnType, typeCheckerState)
         }
-        if (aFir is FirProperty) {
-            require(bFir is FirProperty) { "b is " + b.javaClass }
+        if (aFir is FirVariable) {
+            require(bFir is FirVariable) { "b is " + b.javaClass }
 
             if (!isAccessorMoreSpecific(aFir.setter, bFir.setter)) return false
 
-            return if (aFir.isVar && bFir.isVar) {
+            return if (!modeForResolutionOfMembersOnReceiverWithSmartcast && aFir.isVar && bFir.isVar) {
                 AbstractTypeChecker.equalTypes(typeCheckerState, aReturnType, bReturnType)
             } else { // both vals or var vs val: val can't be more specific then var
                 !(!aFir.isVar && bFir.isVar) && isTypeMoreSpecific(aReturnType, bReturnType, typeCheckerState)
@@ -193,39 +207,6 @@ class FirOverrideService(val session: FirSession) : FirSessionComponent {
     private fun isVisibilityMoreSpecific(a: Visibility, b: Visibility): Boolean {
         val result = Visibilities.compare(a, b)
         return result == null || result >= 0
-    }
-
-    private inner class ApproximationSubstitutor : AbstractConeSubstitutor(session.typeContext) {
-        private val approximator = session.typeApproximator
-
-        override fun substituteArgument(
-            projection: ConeTypeProjection,
-            lookupTag: ConeClassLikeLookupTag,
-            index: Int
-        ): ConeTypeProjection? {
-            if (projection !is ConeCapturedType) return null
-            val type = projection.unwrap()
-            return when (projection.constructor.projection.kind) {
-                ProjectionKind.STAR,
-                ProjectionKind.INVARIANT -> type
-                ProjectionKind.OUT -> ConeKotlinTypeProjectionOut(type)
-                ProjectionKind.IN -> ConeKotlinTypeProjectionIn(type)
-            }
-        }
-
-        override fun substituteType(type: ConeKotlinType): ConeKotlinType? {
-            return when (type) {
-                is ConeCapturedType -> type.unwrap()
-                else -> null
-            }
-        }
-
-        private fun ConeCapturedType.unwrap(): ConeKotlinType {
-            return when (constructor.projection.kind) {
-                ProjectionKind.IN -> approximator.approximateToSubType(this, TypeApproximatorConfiguration.InternalTypesApproximation)
-                else -> approximator.approximateToSuperType(this, TypeApproximatorConfiguration.InternalTypesApproximation)
-            } ?: this
-        }
     }
 }
 

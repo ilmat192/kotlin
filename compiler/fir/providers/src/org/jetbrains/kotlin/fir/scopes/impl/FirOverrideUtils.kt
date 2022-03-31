@@ -14,25 +14,27 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 
-fun filterOutOverriddenFunctions(extractedOverridden: Collection<MemberWithBaseScope<FirNamedFunctionSymbol>>): Collection<MemberWithBaseScope<FirNamedFunctionSymbol>> {
-    return filterOutOverridden(extractedOverridden, FirTypeScope::processDirectOverriddenFunctionsWithBaseScope)
+fun filterOutOverriddenFunctions(extractedOverridden: Collection<MemberWithBaseScope<FirNamedFunctionSymbol>>, deep: Boolean = false): Collection<MemberWithBaseScope<FirNamedFunctionSymbol>> {
+    return filterOutOverridden(extractedOverridden, FirTypeScope::processDirectOverriddenFunctionsWithBaseScope, deep)
 }
 
-fun filterOutOverriddenProperties(extractedOverridden: Collection<MemberWithBaseScope<FirPropertySymbol>>): Collection<MemberWithBaseScope<FirPropertySymbol>> {
-    return filterOutOverridden(extractedOverridden, FirTypeScope::processDirectOverriddenPropertiesWithBaseScope)
+fun filterOutOverriddenProperties(extractedOverridden: Collection<MemberWithBaseScope<FirPropertySymbol>>, deep: Boolean = false): Collection<MemberWithBaseScope<FirPropertySymbol>> {
+    return filterOutOverridden(extractedOverridden, FirTypeScope::processDirectOverriddenPropertiesWithBaseScope, deep)
 }
 
 @OptIn(PrivateForInline::class)
-inline fun <D : FirCallableSymbol<*>> filterOutOverridden(
+fun <D : FirCallableSymbol<*>> filterOutOverridden(
     extractedOverridden: Collection<MemberWithBaseScope<D>>,
     processAllOverridden: ProcessOverriddenWithBaseScope<D>,
+    deep: Boolean
 ): Collection<MemberWithBaseScope<D>> {
     return extractedOverridden.filter { overridden1 ->
         extractedOverridden.none { overridden2 ->
             overridden1 !== overridden2 && overrides(
                 overridden2,
                 overridden1,
-                processAllOverridden
+                processAllOverridden,
+                deep
             )
         }
     }
@@ -40,24 +42,30 @@ inline fun <D : FirCallableSymbol<*>> filterOutOverridden(
 
 // Whether f overrides g
 @PrivateForInline
-inline fun <D : FirCallableSymbol<*>> overrides(
+fun <D : FirCallableSymbol<*>> overrides(
     f: MemberWithBaseScope<D>,
     g: MemberWithBaseScope<D>,
     processAllOverridden: ProcessOverriddenWithBaseScope<D>,
+    deep: Boolean
 ): Boolean {
     val (fMember, fScope) = f
     val (gMember) = g
 
     var result = false
 
-    fScope.processAllOverridden(fMember) { overridden, _ ->
-        if (overridden == gMember) {
-            result = true
-            ProcessorAction.STOP
-        } else {
-            ProcessorAction.NEXT
+    fun processor(overridden: D, scope: FirTypeScope): ProcessorAction {
+        result = result || overridden == gMember
+        if (result) {
+            return ProcessorAction.STOP
         }
+        if (deep) {
+            return scope.processAllOverridden(overridden, ::processor)
+        }
+
+        return ProcessorAction.NEXT
     }
+
+    fScope.processAllOverridden(fMember, ::processor)
 
     return result
 }
