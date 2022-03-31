@@ -78,16 +78,22 @@ abstract class NativeArtifacts @Inject constructor(private val project: Project)
         //because other plugins can add extensions for artifacts which will be used in configuration block
         project.kotlinArtifactsExtension.artifacts.add(artifact)
 
+        //pre-configure defaults
         artifact.addModule(project)
+
         configure.execute(artifact)
-        artifact.registerAssembleTask()
     }
 }
 
 //Groovy script DSL
 private const val KOTLIN_ARTIFACTS_EXTENSION_NAME = "kotlinArtifacts"
 internal fun Project.registerKotlinArtifactsExtension() {
-    extensions.create(KOTLIN_ARTIFACTS_EXTENSION_NAME, KotlinArtifactsExtension::class.java, this)
+    val kotlinArtifactsExt = objects.newInstance(KotlinArtifactsExtension::class.java, this)
+    extensions.add(KOTLIN_ARTIFACTS_EXTENSION_NAME, kotlinArtifactsExt)
+
+    afterEvaluate {
+        kotlinArtifactsExt.artifacts.all { it.registerAssembleTask() }
+    }
 }
 
 internal val Project.kotlinArtifactsExtension: KotlinArtifactsExtension

@@ -21,6 +21,10 @@ abstract class KotlinArtifact(
     val project: Project,
     val artifactName: String
 ) {
+    /**
+     * The assembling task name is based on the artifact parameters
+     * so can be used only after project configuration phase
+     */
     internal abstract val taskName: String
 
     internal val modules = mutableSetOf<Any>()
@@ -33,7 +37,12 @@ abstract class KotlinArtifact(
         modules.add(project)
     }
 
-    internal abstract fun validate()
+    protected abstract fun validate()
+
+    /**
+     * Should be called after project evaluation
+     * because task name is based on the artifact configuration
+     */
     internal abstract fun registerAssembleTask()
 }
 
