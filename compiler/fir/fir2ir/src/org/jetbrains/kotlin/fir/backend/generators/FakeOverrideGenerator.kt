@@ -7,9 +7,7 @@ package org.jetbrains.kotlin.fir.backend.generators
 
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.*
-import org.jetbrains.kotlin.fir.backend.Fir2IrComponents
-import org.jetbrains.kotlin.fir.backend.Fir2IrConversionScope
-import org.jetbrains.kotlin.fir.backend.Fir2IrDeclarationStorage
+import org.jetbrains.kotlin.fir.backend.*
 import org.jetbrains.kotlin.fir.backend.unwrapSubstitutionAndIntersectionOverrides
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.allowsToHaveFakeOverride
@@ -186,7 +184,7 @@ class FakeOverrideGenerator(
         irClass: IrClass,
         isLocal: Boolean,
         originalSymbol: FirCallableSymbol<*>,
-        cachedIrDeclaration: (firDeclaration: D, dispatchReceiverLookupTag: ConeClassLikeLookupTag?, () -> IdSignature?) -> I?,
+        cachedIrDeclaration: CachedDeclarationExtractor<D, I>,
         createIrDeclaration: (firDeclaration: D, irParent: IrClass, thisReceiverOwner: IrClass?, origin: IrDeclarationOrigin, isLocal: Boolean) -> I,
         createFakeOverrideSymbol: (firDeclaration: D, baseSymbol: S) -> S,
         baseSymbols: MutableMap<I, List<S>>,
@@ -229,7 +227,7 @@ class FakeOverrideGenerator(
                 return
             }
         }
-        val irDeclaration = cachedIrDeclaration(fakeOverrideFirDeclaration, null) {
+        val irDeclaration = cachedIrDeclaration(fakeOverrideFirDeclaration, null, null) {
             // Sometimes we can have clashing here when FIR substitution/intersection override
             // have the same signature.
             // Now we avoid this problem by signature caching,
