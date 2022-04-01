@@ -36,6 +36,7 @@ import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.scopes.FirTypeScope
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
+import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
@@ -218,6 +219,17 @@ fun FirReference.toSymbolForCall(
     }
 }
 
+private fun FirExpression.dispatchReceiverLookupTagWithoutSmartcast(session: FirSession): ConeClassLikeLookupTag? {
+    return when (this) {
+        is FirExpressionWithSmartcast -> this.originalType.coneType.extractDispatchReceiverLookupTag(session)
+        else -> null
+    }
+}
+
+private fun ConeKotlinType.extractDispatchReceiverLookupTag(session: FirSession): ConeClassLikeLookupTag? {
+    return this.findClassRepresentation(this, session)
+}
+
 private fun FirCallableSymbol<*>.toSymbolForCall(
     dispatchReceiver: FirExpression,
     declarationStorage: Fir2IrDeclarationStorage,
@@ -225,20 +237,21 @@ private fun FirCallableSymbol<*>.toSymbolForCall(
     explicitReceiver: FirExpression? = null,
     isDelegate: Boolean = false
 ): IrSymbol? {
-    val dispatchReceiverLookupTag = when (dispatchReceiver) {
+    val session = declarationStorage.session
+    val (dispatchReceiverLookupTag, dispatchReceiverLookupTagWithoutSmartcast) = when (dispatchReceiver) {
         is FirNoReceiverExpression -> {
             val containingClass = containingClass()
             if (containingClass != null && containingClass.classId != StandardClassIds.Any) {
                 // Make sure that symbol is not extension and is not from inline class
                 val coneType = ((explicitReceiver as? FirResolvedQualifier)?.symbol as? FirClassSymbol)?.defaultType()
-                coneType?.findClassRepresentation(coneType, declarationStorage.session)
+                coneType?.extractDispatchReceiverLookupTag(session) to null
             } else {
-                null
+                null to null
             }
         }
         else -> {
-            val coneType = dispatchReceiver.typeRef.coneType
-            dispatchReceiver.typeRef.coneType.findClassRepresentation(coneType, declarationStorage.session)
+            dispatchReceiver.typeRef.coneType.extractDispatchReceiverLookupTag(session) to
+                    dispatchReceiver.dispatchReceiverLookupTagWithoutSmartcast(session)
         }
     }
     return when (this) {
@@ -258,8 +271,16 @@ private fun FirCallableSymbol<*>.toSymbolForCall(
                 } ?: declarationStorage.getIrPropertySymbol(this)
             }
         }
-        is FirFunctionSymbol<*> -> declarationStorage.getIrFunctionSymbol(this, dispatchReceiverLookupTag)
-        is FirPropertySymbol -> declarationStorage.getIrPropertySymbol(this, dispatchReceiverLookupTag)
+        is FirFunctionSymbol<*> -> declarationStorage.getIrFunctionSymbol(
+            this,
+            dispatchReceiverLookupTag,
+            dispatchReceiverLookupTagWithoutSmartcast
+        )
+        is FirPropertySymbol -> declarationStorage.getIrPropertySymbol(
+            this,
+            dispatchReceiverLookupTag,
+            dispatchReceiverLookupTagWithoutSmartcast
+        )
         is FirFieldSymbol -> declarationStorage.getIrFieldSymbol(this)
         is FirBackingFieldSymbol -> declarationStorage.getIrBackingFieldSymbol(this)
         is FirDelegateFieldSymbol -> declarationStorage.getIrDelegateFieldSymbol(this)

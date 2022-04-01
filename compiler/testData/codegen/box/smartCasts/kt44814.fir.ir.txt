@@ -690,10 +690,10 @@ FILE fqName:<root> fileName:/kt44814.kt
                           CALL 'public final fun find <T> (predicate: kotlin.Function1<T of kotlin.collections.CollectionsKt.find, kotlin.Boolean>): T of kotlin.collections.CollectionsKt.find? [inline] declared in kotlin.collections.CollectionsKt' type=<root>.LighterASTNode? origin=null
                             <T>: <root>.LighterASTNode?
                             $receiver: CALL 'public final fun getChildren (treeStructure: <root>.FlyweightCapableTreeStructure): kotlin.collections.List<<root>.LighterASTNode?> declared in <root>.LighterASTNode' type=kotlin.collections.List<<root>.LighterASTNode?> origin=null
-                              $this: CALL 'public final fun <get-lighterASTNode> (): <root>.LighterASTNode declared in <root>.FirLightSourceElement' type=<root>.LighterASTNode origin=GET_PROPERTY
+                              $this: CALL 'public abstract fun <get-lighterASTNode> (): <root>.LighterASTNode declared in <root>.FirSourceElement' type=<root>.LighterASTNode origin=GET_PROPERTY
                                 $this: TYPE_OP type=<root>.FirLightSourceElement origin=IMPLICIT_CAST typeOperand=<root>.FirLightSourceElement
                                   GET_VAR '<this>: <root>.FirSourceElement? declared in <root>.FirModifierList.Companion.getModifierList' type=<root>.FirSourceElement? origin=null
-                              treeStructure: CALL 'public final fun <get-treeStructure> (): <root>.FlyweightCapableTreeStructure declared in <root>.FirLightSourceElement' type=<root>.FlyweightCapableTreeStructure origin=GET_PROPERTY
+                              treeStructure: CALL 'public abstract fun <get-treeStructure> (): <root>.FlyweightCapableTreeStructure declared in <root>.FirSourceElement' type=<root>.FlyweightCapableTreeStructure origin=GET_PROPERTY
                                 $this: TYPE_OP type=<root>.FirLightSourceElement origin=IMPLICIT_CAST typeOperand=<root>.FirLightSourceElement
                                   GET_VAR '<this>: <root>.FirSourceElement? declared in <root>.FirModifierList.Companion.getModifierList' type=<root>.FirSourceElement? origin=null
                             predicate: FUN_EXPR type=kotlin.Function1<<root>.LighterASTNode?, kotlin.Boolean> origin=LAMBDA
@@ -729,7 +729,7 @@ FILE fqName:<root> fileName:/kt44814.kt
                             then: GET_VAR 'val tmp_3: <root>.LighterASTNode? [val] declared in <root>.FirModifierList.Companion.getModifierList' type=<root>.LighterASTNode? origin=null
                     CONSTRUCTOR_CALL 'public constructor <init> (modifierList: <root>.LighterASTNode, tree: <root>.FlyweightCapableTreeStructure) [primary] declared in <root>.FirModifierList.FirLightModifierList' type=<root>.FirModifierList.FirLightModifierList origin=null
                       modifierList: GET_VAR 'val modifierListNode: <root>.LighterASTNode [val] declared in <root>.FirModifierList.Companion.getModifierList' type=<root>.LighterASTNode origin=null
-                      tree: CALL 'public final fun <get-treeStructure> (): <root>.FlyweightCapableTreeStructure declared in <root>.FirLightSourceElement' type=<root>.FlyweightCapableTreeStructure origin=GET_PROPERTY
+                      tree: CALL 'public abstract fun <get-treeStructure> (): <root>.FlyweightCapableTreeStructure declared in <root>.FirSourceElement' type=<root>.FlyweightCapableTreeStructure origin=GET_PROPERTY
                         $this: TYPE_OP type=<root>.FirLightSourceElement origin=IMPLICIT_CAST typeOperand=<root>.FirLightSourceElement
                           GET_VAR '<this>: <root>.FirSourceElement? declared in <root>.FirModifierList.Companion.getModifierList' type=<root>.FirSourceElement? origin=null
                 BRANCH

@@ -63,7 +63,7 @@ FILE fqName:<root> fileName:/floatingPointEquals.kt
               BRANCH
                 if: CONST Boolean type=kotlin.Boolean value=true
                 then: CONST Boolean type=kotlin.Boolean value=false
-            then: CALL 'public open fun equals (other: kotlin.Any?): kotlin.Boolean [fake_override,operator] declared in kotlin.Double' type=kotlin.Boolean origin=null
+            then: CALL 'public open fun equals (other: kotlin.Any?): kotlin.Boolean [operator] declared in kotlin.Any' type=kotlin.Boolean origin=null
               $this: TYPE_OP type=kotlin.Double origin=IMPLICIT_CAST typeOperand=kotlin.Double
                 GET_VAR 'x: kotlin.Any declared in <root>.test6d' type=kotlin.Any origin=null
               other: TYPE_OP type=kotlin.Double origin=IMPLICIT_CAST typeOperand=kotlin.Double
@@ -135,7 +135,7 @@ FILE fqName:<root> fileName:/floatingPointEquals.kt
               BRANCH
                 if: CONST Boolean type=kotlin.Boolean value=true
                 then: CONST Boolean type=kotlin.Boolean value=false
-            then: CALL 'public open fun equals (other: kotlin.Any?): kotlin.Boolean [fake_override,operator] declared in kotlin.Float' type=kotlin.Boolean origin=null
+            then: CALL 'public open fun equals (other: kotlin.Any?): kotlin.Boolean [operator] declared in kotlin.Any' type=kotlin.Boolean origin=null
               $this: TYPE_OP type=kotlin.Float origin=IMPLICIT_CAST typeOperand=kotlin.Float
                 GET_VAR 'x: kotlin.Any declared in <root>.test6f' type=kotlin.Any origin=null
               other: TYPE_OP type=kotlin.Float origin=IMPLICIT_CAST typeOperand=kotlin.Float
@@ -159,7 +159,7 @@ FILE fqName:<root> fileName:/floatingPointEquals.kt
               BRANCH
                 if: CONST Boolean type=kotlin.Boolean value=true
                 then: CONST Boolean type=kotlin.Boolean value=false
-            then: CALL 'public open fun equals (other: kotlin.Any?): kotlin.Boolean [fake_override,operator] declared in kotlin.Float' type=kotlin.Boolean origin=null
+            then: CALL 'public open fun equals (other: kotlin.Any?): kotlin.Boolean [operator] declared in kotlin.Any' type=kotlin.Boolean origin=null
               $this: TYPE_OP type=kotlin.Float origin=IMPLICIT_CAST typeOperand=kotlin.Float
                 GET_VAR 'x: kotlin.Any declared in <root>.testFD' type=kotlin.Any origin=null
               other: TYPE_OP type=kotlin.Double origin=IMPLICIT_CAST typeOperand=kotlin.Double
@@ -183,7 +183,7 @@ FILE fqName:<root> fileName:/floatingPointEquals.kt
               BRANCH
                 if: CONST Boolean type=kotlin.Boolean value=true
                 then: CONST Boolean type=kotlin.Boolean value=false
-            then: CALL 'public open fun equals (other: kotlin.Any?): kotlin.Boolean [fake_override,operator] declared in kotlin.Double' type=kotlin.Boolean origin=null
+            then: CALL 'public open fun equals (other: kotlin.Any?): kotlin.Boolean [operator] declared in kotlin.Any' type=kotlin.Boolean origin=null
               $this: TYPE_OP type=kotlin.Double origin=IMPLICIT_CAST typeOperand=kotlin.Double
                 GET_VAR 'x: kotlin.Any declared in <root>.testDF' type=kotlin.Any origin=null
               other: TYPE_OP type=kotlin.Float origin=IMPLICIT_CAST typeOperand=kotlin.Float

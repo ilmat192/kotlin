@@ -425,12 +425,13 @@ class Fir2IrDeclarationStorage(
     fun getCachedIrFunction(
         function: FirSimpleFunction,
         dispatchReceiverLookupTag: ConeClassLikeLookupTag?,
+        dispatchReceiverLookupTagWithoutSmartcast: ConeClassLikeLookupTag?,
         signatureCalculator: () -> IdSignature?
     ): IrSimpleFunction? {
         if (function.visibility == Visibilities.Local) {
             return localStorage.getLocalFunction(function)
         }
-        return getCachedIrCallable(function, dispatchReceiverLookupTag, functionCache, signatureCalculator) { signature ->
+        return getCachedIrCallable(function, dispatchReceiverLookupTag, dispatchReceiverLookupTagWithoutSmartcast, functionCache, signatureCalculator) { signature ->
             symbolTable.referenceSimpleFunctionIfAny(signature)?.owner
         }
     }
@@ -906,9 +907,16 @@ class Fir2IrDeclarationStorage(
     fun getCachedIrProperty(
         property: FirProperty,
         dispatchReceiverLookupTag: ConeClassLikeLookupTag?,
+        dispatchReceiverLookupTagWithoutSmartcast: ConeClassLikeLookupTag?,
         signatureCalculator: () -> IdSignature?
     ): IrProperty? {
-        return getCachedIrCallable(property, dispatchReceiverLookupTag, propertyCache, signatureCalculator) { signature ->
+        return getCachedIrCallable(
+            property,
+            dispatchReceiverLookupTag,
+            dispatchReceiverLookupTagWithoutSmartcast,
+            propertyCache,
+            signatureCalculator
+        ) { signature ->
             symbolTable.referencePropertyIfAny(signature)?.owner
         }
     }
@@ -916,11 +924,15 @@ class Fir2IrDeclarationStorage(
     private inline fun <reified FC : FirCallableDeclaration, reified IC : IrDeclaration> getCachedIrCallable(
         declaration: FC,
         dispatchReceiverLookupTag: ConeClassLikeLookupTag?,
+        dispatchReceiverLookupTagWithoutSmartcast: ConeClassLikeLookupTag?,
         cache: MutableMap<FC, IC>,
         signatureCalculator: () -> IdSignature?,
         referenceIfAny: (IdSignature) -> IC?
     ): IC? {
-        val isFakeOverride = dispatchReceiverLookupTag != null && dispatchReceiverLookupTag != declaration.containingClass()
+        val isFakeOverride = (dispatchReceiverLookupTag != null) && run {
+            val containingClassLookupTag = declaration.containingClass()
+            dispatchReceiverLookupTag != containingClassLookupTag && dispatchReceiverLookupTagWithoutSmartcast != containingClassLookupTag
+        }
         if (!isFakeOverride) {
             cache[declaration]?.let { return it }
         }
@@ -1155,7 +1167,8 @@ class Fir2IrDeclarationStorage(
         return getIrCallableSymbol(
             firConstructorSymbol,
             dispatchReceiverLookupTag = null,
-            getCachedIrDeclaration = { constructor: FirConstructor, _, calculator -> getCachedIrConstructor(constructor, calculator) },
+            dispatchReceiverLookupTagWithoutSmartcast = null,
+            getCachedIrDeclaration = { constructor: FirConstructor, _, _, calculator -> getCachedIrConstructor(constructor, calculator) },
             createIrDeclaration = { parent, origin -> createIrConstructor(fir, parent as IrClass, predefinedOrigin = origin) },
             createIrLazyDeclaration = { signature, lazyParent, declarationOrigin ->
                 val symbol = Fir2IrConstructorSymbol(signature)
@@ -1178,7 +1191,8 @@ class Fir2IrDeclarationStorage(
 
     fun getIrFunctionSymbol(
         firFunctionSymbol: FirFunctionSymbol<*>,
-        dispatchReceiverLookupTag: ConeClassLikeLookupTag? = null
+        dispatchReceiverLookupTag: ConeClassLikeLookupTag? = null,
+        dispatchReceiverLookupTagWithoutSmartcast: ConeClassLikeLookupTag? = null,
     ): IrFunctionSymbol {
         return when (val fir = firFunctionSymbol.fir) {
             is FirAnonymousFunction -> {
@@ -1196,6 +1210,7 @@ class Fir2IrDeclarationStorage(
                 val originalSymbol = getIrCallableSymbol(
                     firFunctionSymbol,
                     dispatchReceiverLookupTag,
+                    dispatchReceiverLookupTagWithoutSmartcast,
                     getCachedIrDeclaration = ::getCachedIrFunction,
                     createIrDeclaration = { parent, origin ->
                         createIrFunction(fir, parent, predefinedOrigin = origin)
@@ -1247,7 +1262,8 @@ class Fir2IrDeclarationStorage(
 
     fun getIrPropertySymbol(
         firPropertySymbol: FirPropertySymbol,
-        dispatchReceiverLookupTag: ConeClassLikeLookupTag? = null
+        dispatchReceiverLookupTag: ConeClassLikeLookupTag? = null,
+        dispatchReceiverLookupTagWithoutSmartcast: ConeClassLikeLookupTag? = null,
     ): IrSymbol {
         val fir = firPropertySymbol.fir
         if (fir.isLocal) {
@@ -1262,6 +1278,7 @@ class Fir2IrDeclarationStorage(
         fun ConeClassLikeLookupTag?.getIrCallableSymbol() = getIrCallableSymbol(
             firPropertySymbol,
             dispatchReceiverLookupTag = this,
+            dispatchReceiverLookupTagWithoutSmartcast,
             getCachedIrDeclaration = ::getCachedIrProperty,
             createIrDeclaration = { parent, origin -> createIrProperty(fir, parent, predefinedOrigin = origin) },
             createIrLazyDeclaration = { signature, lazyParent, declarationOrigin ->
@@ -1350,15 +1367,26 @@ class Fir2IrDeclarationStorage(
             > getIrCallableSymbol(
         firSymbol: FS,
         dispatchReceiverLookupTag: ConeClassLikeLookupTag?,
-        getCachedIrDeclaration: (firDeclaration: F, dispatchReceiverLookupTag: ConeClassLikeLookupTag?, () -> IdSignature?) -> I?,
+        dispatchReceiverLookupTagWithoutSmartcast: ConeClassLikeLookupTag?,
+        getCachedIrDeclaration: CachedDeclarationExtractor<F, I>,
         createIrDeclaration: (parent: IrDeclarationParent?, origin: IrDeclarationOrigin) -> I,
         createIrLazyDeclaration: (signature: IdSignature, lazyOwner: Fir2IrLazyClass, origin: IrDeclarationOrigin) -> I,
     ): IrSymbol {
         val fir = firSymbol.fir as F
         val irParent by lazy { findIrParent(fir) }
-        val signature by lazy { signatureComposer.composeSignature(fir, dispatchReceiverLookupTag) }
+        val signature by lazy {
+            val containingClassTag = fir.containingClass()
+            signatureComposer.composeSignature(
+                fir,
+                dispatchReceiverLookupTagWithoutSmartcast?.takeIf { it == containingClassTag } ?: dispatchReceiverLookupTag
+            )
+        }
         synchronized(symbolTable.lock) {
-            getCachedIrDeclaration(fir, dispatchReceiverLookupTag.takeIf { it !is ConeClassLookupTagWithFixedSymbol }) {
+            getCachedIrDeclaration(
+                fir,
+                dispatchReceiverLookupTag.takeIf { it !is ConeClassLookupTagWithFixedSymbol },
+                dispatchReceiverLookupTagWithoutSmartcast.takeIf { it !is ConeClassLookupTagWithFixedSymbol }
+            ) {
                 // Parent calculation provokes declaration calculation for some members from IrBuiltIns
                 @Suppress("UNUSED_EXPRESSION") irParent
                 signature
@@ -1503,3 +1531,10 @@ class Fir2IrDeclarationStorage(
         }
     }
 }
+
+typealias CachedDeclarationExtractor<F, I> = (
+    firDeclaration: F,
+    dispatchReceiverLookupTag: ConeClassLikeLookupTag?,
+    dispatchReceiverLookupTagWithoutSmartcast: ConeClassLikeLookupTag?,
+    () -> IdSignature?
+) -> I?
