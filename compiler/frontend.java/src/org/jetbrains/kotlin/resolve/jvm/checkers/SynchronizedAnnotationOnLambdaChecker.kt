@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.resolve.jvm.checkers
 
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.descriptors.annotations.KotlinTarget
@@ -33,7 +34,11 @@ object SynchronizedAnnotationOnLambdaChecker : AdditionalAnnotationChecker {
         val literal = (annotated?.unwrapParenthesesLabelsAndAnnotations() as? KtLambdaExpression)?.functionLiteral ?: return
         val descriptor = trace.bindingContext[BindingContext.DECLARATION_TO_DESCRIPTOR, literal]
         if (descriptor is FunctionDescriptor && descriptor.isSuspend) {
-            trace.report(ErrorsJvm.SYNCHRONIZED_ON_SUSPEND.on(annotation))
+            if (languageVersionSettings.supportsFeature(LanguageFeature.SynchronizedSuspendError)) {
+                trace.report(ErrorsJvm.SYNCHRONIZED_ON_SUSPEND_ERROR.on(annotation))
+            } else {
+                trace.report(ErrorsJvm.SYNCHRONIZED_ON_SUSPEND.on(annotation))
+            }
         }
     }
 }

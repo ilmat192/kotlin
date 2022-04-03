@@ -3361,6 +3361,16 @@ internal class SynchronizedOnInlineImpl(
     override val token: ValidityToken,
 ) : KtFirDiagnostic.SynchronizedOnInline(), KtAbstractFirDiagnostic<KtAnnotationEntry>
 
+internal class SynchronizedOnSuspendImpl(
+    override val firDiagnostic: KtPsiDiagnostic,
+    override val token: ValidityToken,
+) : KtFirDiagnostic.SynchronizedOnSuspend(), KtAbstractFirDiagnostic<KtAnnotationEntry>
+
+internal class SynchronizedOnSuspendErrorImpl(
+    override val firDiagnostic: KtPsiDiagnostic,
+    override val token: ValidityToken,
+) : KtFirDiagnostic.SynchronizedOnSuspendError(), KtAbstractFirDiagnostic<KtAnnotationEntry>
+
 internal class OverloadsWithoutDefaultArgumentsImpl(
     override val firDiagnostic: KtPsiDiagnostic,
     override val token: ValidityToken,

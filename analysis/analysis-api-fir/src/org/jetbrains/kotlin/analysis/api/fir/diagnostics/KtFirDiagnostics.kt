@@ -2783,6 +2783,14 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
         override val diagnosticClass get() = SynchronizedOnInline::class
     }
 
+    abstract class SynchronizedOnSuspend : KtFirDiagnostic<KtAnnotationEntry>() {
+        override val diagnosticClass get() = SynchronizedOnSuspend::class
+    }
+
+    abstract class SynchronizedOnSuspendError : KtFirDiagnostic<KtAnnotationEntry>() {
+        override val diagnosticClass get() = SynchronizedOnSuspendError::class
+    }
+
     abstract class OverloadsWithoutDefaultArguments : KtFirDiagnostic<KtAnnotationEntry>() {
         override val diagnosticClass get() = OverloadsWithoutDefaultArguments::class
     }

@@ -35685,6 +35685,18 @@ public class FirOldFrontendDiagnosticsTestGenerated extends AbstractFirDiagnosti
             }
 
             @Test
+            @TestMetadata("synchronizedOnSuspend.kt")
+            public void testSynchronizedOnSuspend() throws Exception {
+                runTest("compiler/testData/diagnostics/testsWithStdLib/coroutines/synchronizedOnSuspend.kt");
+            }
+
+            @Test
+            @TestMetadata("synchronizedOnSuspendError.kt")
+            public void testSynchronizedOnSuspendError() throws Exception {
+                runTest("compiler/testData/diagnostics/testsWithStdLib/coroutines/synchronizedOnSuspendError.kt");
+            }
+
+            @Test
             @TestMetadata("tryCatchLambda.kt")
             public void testTryCatchLambda() throws Exception {
                 runTest("compiler/testData/diagnostics/testsWithStdLib/coroutines/tryCatchLambda.kt");
@@ -37350,12 +37362,6 @@ public class FirOldFrontendDiagnosticsTestGenerated extends AbstractFirDiagnosti
             @TestMetadata("synchronizedOnInline.kt")
             public void testSynchronizedOnInline() throws Exception {
                 runTest("compiler/testData/diagnostics/testsWithStdLib/inline/synchronizedOnInline.kt");
-            }
-
-            @Test
-            @TestMetadata("synchronizedOnSuspend.kt")
-            public void testSynchronizedOnSuspend() throws Exception {
-                runTest("compiler/testData/diagnostics/testsWithStdLib/inline/synchronizedOnSuspend.kt");
             }
         }
 
