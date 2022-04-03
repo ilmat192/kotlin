@@ -62,7 +62,9 @@ private fun NodeList.toList(): List<Node> {
 
 private val Node.childNodesList get() = childNodes.toList()
 
-private val ROOT_PATH_PREFIX = System.getProperty("fir.bench.prefix", "/")
+private val ROOT_PATH_PREFIX:String = System.getProperty("fir.bench.prefix", "/")
+private val FIR_BRANCH_FILTER:String = System.getProperty("fir.bench.filter", ".*")
+private val FIR_BRANCH_FILTER_NAME: String? = System.getProperty("fir.bench.filter.name")
 
 abstract class AbstractModularizedTest : KtUsefulTestCase() {
     private val folderDateFormat = SimpleDateFormat("yyyy-MM-dd")
@@ -193,13 +195,15 @@ abstract class AbstractModularizedTest : KtUsefulTestCase() {
 
         println("BASE PATH: ${root.absolutePath}")
 
-        val filterRegex = (System.getProperty("fir.bench.filter") ?: ".*").toRegex()
+        val filterRegex = (FIR_BRANCH_FILTER).toRegex()
+        val moduleName = FIR_BRANCH_FILTER_NAME
         val files = root.listFiles() ?: emptyArray()
         val modules = files.filter { it.extension == "xml" }
             .sortedBy { it.lastModified() }
             .map { loadModule(it) }
             .sortedBy { it.timestamp }
             .filter { it.rawOutputDir.matches(filterRegex) }
+            .filter { (moduleName == null) || it.name == moduleName }
             .filter { !it.isCommon }
 
 
