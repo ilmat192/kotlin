@@ -26,7 +26,6 @@ import org.jetbrains.kotlin.name.StandardClassIds.Annotations.HidesMembers
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.SmartList
-import org.jetbrains.kotlin.utils.addToStdlib.runIf
 
 enum class ProcessResult {
     FOUND, SCOPE_EMPTY;
@@ -92,48 +91,40 @@ class MemberScopeTowerLevel(
         val scope = dispatchReceiverValue.scope(session, scopeSession) ?: return ProcessResult.SCOPE_EMPTY
         var (empty, candidates) = scope.collectCandidates(processScopeMembers)
 
-        val typeWithoutSmartcast = (dispatchReceiverValue.receiverExpression as? FirExpressionWithSmartcast)?.let {
-            runIf(it.isStable) { it.originalType.coneType }
-        }
-        if (typeWithoutSmartcast == null) {
-            // no smartcast, just consume candidates
+        val scopeWithoutSmartcast = (dispatchReceiverValue.receiverExpression as? FirExpressionWithSmartcast)
+            ?.takeIf { it.isStable }
+            ?.originalType
+            ?.coneType
+            ?.scope(session, scopeSession, bodyResolveComponents.returnTypeCalculator.fakeOverrideTypeCalculator)
+        if (scopeWithoutSmartcast == null) {
             consumeCandidates(output, candidates)
         } else {
-            val originalScope = typeWithoutSmartcast.scope(
-                session,
-                scopeSession,
-                bodyResolveComponents.returnTypeCalculator.fakeOverrideTypeCalculator
-            )
-            if (originalScope == null) {
-                consumeCandidates(output, candidates)
-            } else {
-                val result = mutableListOf<MemberWithBaseScope<T>>()
-                originalScope.collectCandidates(processScopeMembers).let { (isEmpty, originalCandidates) ->
-                    empty = empty && isEmpty
-                    result += originalCandidates
-                }
-                result += candidates
+            val result = mutableListOf<MemberWithBaseScope<T>>()
+            scopeWithoutSmartcast.collectCandidates(processScopeMembers).let { (isEmpty, originalCandidates) ->
+                empty = empty && isEmpty
+                result += originalCandidates
+            }
+            result += candidates
 
-                val elements = session.overrideService.selectMostSpecificInEachOverridableGroup(
+            val elements = session.overrideService.selectMostSpecificInEachOverridableGroup(
+                result,
+                FirStandardOverrideChecker(session),
+                bodyResolveComponents.returnTypeCalculator,
+                modeForResolutionOfMembersOnReceiverWithSmartcast = true
+            )
+
+            if (elements.size > 1) {
+                session.overrideService.selectMostSpecificInEachOverridableGroup(
                     result,
                     FirStandardOverrideChecker(session),
                     bodyResolveComponents.returnTypeCalculator,
                     modeForResolutionOfMembersOnReceiverWithSmartcast = true
                 )
-
-                if (elements.size > 1) {
-                    session.overrideService.selectMostSpecificInEachOverridableGroup(
-                        result,
-                        FirStandardOverrideChecker(session),
-                        bodyResolveComponents.returnTypeCalculator,
-                        modeForResolutionOfMembersOnReceiverWithSmartcast = true
-                    )
-                }
-                result.retainAll(
-                    elements
-                )
-                consumeCandidates(output, result)
             }
+            result.retainAll(
+                elements
+            )
+            consumeCandidates(output, result)
         }
 
         if (extensionReceiver == null) {
