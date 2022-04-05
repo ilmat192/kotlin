@@ -1221,7 +1221,7 @@ class Fir2IrDeclarationStorage(
                 ) as IrFunctionSymbol
                 if (unmatchedReceiver && dispatchReceiverLookupTag is ConeClassLookupTagWithFixedSymbol) {
                     val originalFunction = originalSymbol.owner as IrSimpleFunction
-                    dispatchReceiverLookupTag.findIrFakeOverride(fir.name, originalFunction) as IrFunctionSymbol
+                    dispatchReceiverLookupTag.findIrFakeOverride(fir.name, originalFunction) as IrFunctionSymbol? ?: originalSymbol
                 } else {
                     originalSymbol
                 }
