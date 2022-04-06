@@ -7,6 +7,7 @@ package test.time
 
 import kotlin.test.*
 import kotlin.time.*
+import kotlin.time.Duration.Companion.nanoseconds
 
 @OptIn(ExperimentalTime::class)
 class TimeMarkJVMTest {
@@ -15,4 +16,16 @@ class TimeMarkJVMTest {
     fun longDurationElapsed() {
         TimeMarkTest().testLongDisplacement(TimeSource.Monotonic, { waitDuration -> Thread.sleep(waitDuration.inWholeMilliseconds) })
     }
+
+    @Test
+    fun defaultTimeMarkAdjustmentInfinite() {
+        val baseMark = TimeSource.Monotonic.markNow()
+        val longDuration = Long.MAX_VALUE.nanoseconds
+
+        val pastMark = baseMark - longDuration
+        val infiniteFutureMark1 = pastMark + longDuration * 3
+
+        assertEquals(-Duration.INFINITE, infiniteFutureMark1.elapsedNow())
+    }
+
 }

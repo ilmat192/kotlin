@@ -26,13 +26,18 @@ internal actual object MonotonicTimeSource : TimeSource {
 
 private fun saturatingAdd(longNs: Long, duration: Duration): Long {
     val durationNs = duration.inWholeNanoseconds
-    if ((longNs - 1) or 1 == Long.MAX_VALUE) { // MIN_VALUE or MAX_VALUE
+    if ((longNs - 1) or 1 == Long.MAX_VALUE) { // MIN_VALUE or MAX_VALUE - the reading is infinite
         if (duration.isInfinite() && (longNs xor durationNs < 0)) throw IllegalArgumentException("Summing infinities of different signs")
         return longNs
     }
-    if ((durationNs - 1) or 1 == Long.MAX_VALUE) {
-        // TODO: check precision losses
-        return (longNs + duration.toDouble(DurationUnit.NANOSECONDS)).toLong()
+    if ((durationNs - 1) or 1 == Long.MAX_VALUE) { // duration doesn't fit in Long nanos
+        val half = duration / 2
+        if ((half.inWholeNanoseconds - 1) or 1 == Long.MAX_VALUE) {
+            // this will definitely saturate
+            return (longNs + duration.toDouble(DurationUnit.NANOSECONDS)).toLong()
+        } else {
+            return saturatingAdd(saturatingAdd(longNs, half), half)
+        }
     }
 
     val result = longNs + durationNs
