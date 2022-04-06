@@ -98,8 +98,9 @@ public interface TimeMark {
  *
  * The operations [plus] and [minus] are also specialized to return [DefaultTimeMark] type.
  */
-@JvmInline
 @ExperimentalTime
+@SinceKotlin("1.7")
+@JvmInline
 public value class DefaultTimeMark internal constructor(internal val reading: DefaultTimeMarkReading) : TimeMark {
     override fun elapsedNow(): Duration = MonotonicTimeSource.elapsedFrom(this)
     override fun plus(duration: Duration): DefaultTimeMark = MonotonicTimeSource.adjustReading(this, duration)
