@@ -9,7 +9,19 @@ import kotlin.system.*
 
 @SinceKotlin("1.3")
 @ExperimentalTime
-internal actual object MonotonicTimeSource : AbstractLongTimeSource(unit = DurationUnit.NANOSECONDS), TimeSource { // TODO: interface should not be required here
-    override fun read(): Long = getTimeNanos()
-    override fun toString(): String = "TimeSource(nanoTime())"
+internal actual object MonotonicTimeSource : TimeSource {
+    private val zero: Long = getTimeNanos()
+    private fun read(): Long = getTimeNanos() - zero
+    override fun toString(): String = "TimeSource(System.nanoTime())"
+
+    actual override fun markNow(): DefaultTimeMark = DefaultTimeMark(read())
+    actual fun elapsedFrom(timeMark: DefaultTimeMark): Duration =
+            saturatingDiff(read(), timeMark.reading)
+
+    // may have questionable contract
+    actual fun adjustReading(timeMark: DefaultTimeMark, duration: Duration): DefaultTimeMark =
+            DefaultTimeMark(saturatingAdd(timeMark.reading, duration))
 }
+
+@Suppress("ACTUAL_WITHOUT_EXPECT") // visibility
+internal actual typealias DefaultTimeMarkReading = Long
