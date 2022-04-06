@@ -89,9 +89,18 @@ public interface TimeMark {
     public fun hasNotPassedNow(): Boolean = elapsedNow().isNegative()
 }
 
+/**
+ * A specialized [TimeMark] returned by [TimeSource.Monotonic].
+ *
+ * This time mark is implemented as an inline value class wrapping a platform-dependent
+ * time reading value of the default monotonic time source, thus allowing to avoid additional boxing
+ * of that value.
+ *
+ * The operations [plus] and [minus] are also specialized to return [DefaultTimeMark] type.
+ */
 @JvmInline
 @ExperimentalTime
-value class DefaultTimeMark internal constructor(internal val reading: DefaultTimeMarkReading) : TimeMark {
+public value class DefaultTimeMark internal constructor(internal val reading: DefaultTimeMarkReading) : TimeMark {
     override fun elapsedNow(): Duration = MonotonicTimeSource.elapsedFrom(this)
     override fun plus(duration: Duration): DefaultTimeMark = MonotonicTimeSource.adjustReading(this, duration)
     override fun minus(duration: Duration): DefaultTimeMark = MonotonicTimeSource.adjustReading(this, -duration)
