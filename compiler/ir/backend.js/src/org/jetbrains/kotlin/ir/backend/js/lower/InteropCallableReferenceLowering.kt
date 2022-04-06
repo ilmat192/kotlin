@@ -135,9 +135,9 @@ class InteropCallableReferenceLowering(val context: JsIrBackendContext) : BodyLo
             // we generate a named free function. The usage of the lambda is then replaced with a reference to the free function.
             // This allows us to avoid allocating a new object each time the lambda is created.
             return if (lambdaClass.origin == CallableReferenceLowering.Companion.LAMBDA_IMPL && !lambdaInfo.isSuspendLambda && lambdaClass.fields.none()) {
-                liftLambda(lambdaClass, ctorToFreeFunctionMap, lambdaInfo)
+                liftLambda(ctorToFreeFunctionMap, lambdaInfo)
             } else {
-                buildFactoryFunction(lambdaClass, ctorToFactoryMap, lambdaInfo)
+                buildFactoryFunction(ctorToFactoryMap, lambdaInfo)
             }.onEach { it.parent = lambdaClass.parent }
         }
     }
@@ -251,43 +251,42 @@ class InteropCallableReferenceLowering(val context: JsIrBackendContext) : BodyLo
         return returnStmt.value
     }
 
-    private class LambdaInfo(lambdaClass: IrClass) {
+    private class LambdaInfo(val lambdaClass: IrClass) {
         val invokeFun = lambdaClass.invokeFun!!
         val superInvokeFun = invokeFun.overriddenSymbols.first { it.owner.isSuspend == invokeFun.isSuspend }.owner
         val isSuspendLambda = invokeFun.overriddenSymbols.any { it.owner.isSuspend }
 
         fun createOldToNewInvokeParametersMapping(lambdaDeclaration: IrSimpleFunction) =
             invokeFun.valueParameters.associateBy({ it.symbol }, { lambdaDeclaration.valueParameters[it.index].symbol })
-    }
 
-    fun IrClass.lambdaInnerClasses() =
-        declarations.filter { it is IrClass || (it is IrSimpleFunction && it.dispatchReceiverParameter == null) }
+        fun lambdaInnerClasses() =
+            lambdaClass.declarations.filter { it is IrClass || (it is IrSimpleFunction && it.dispatchReceiverParameter == null) }
+    }
 
     private fun buildFactoryBody(
         factoryFunction: IrSimpleFunction,
-        lambdaClass: IrClass,
         newDeclarations: MutableList<IrDeclaration>,
         lambdaInfo: LambdaInfo
     ): IrBlockBody {
         val superClass = lambdaInfo.superInvokeFun.parentAsClass
-        val lambdaName = Name.identifier("${lambdaClass.name.asString()}\$lambda")
+        val lambdaName = Name.identifier("${lambdaInfo.lambdaClass.name.asString()}\$lambda")
 
         val lambdaDeclaration =
             createLambdaDeclaration(lambdaInfo.invokeFun, lambdaName, factoryFunction, lambdaInfo.superInvokeFun)
 
         val statements = ArrayList<IrStatement>(4)
-        val constructor = lambdaClass.declarations.firstNotNullOf { it as? IrConstructor }
+        val constructor = lambdaInfo.lambdaClass.declarations.firstNotNullOf { it as? IrConstructor }
 
         if (lambdaInfo.isSuspendLambda) {
             // Due to suspend lambda is a class itself it's not easy to inline it correctly and moreover I see no reason to do so
-            val lambdaType = lambdaClass.defaultType
+            val lambdaType = lambdaInfo.lambdaClass.defaultType
             val instanceVal = JsIrBuilder.buildVar(lambdaType, factoryFunction, "i").apply {
                 val newCtorCall = IrConstructorCallImpl(
-                    lambdaClass.startOffset,
-                    lambdaClass.endOffset,
+                    lambdaInfo.lambdaClass.startOffset,
+                    lambdaInfo.lambdaClass.endOffset,
                     lambdaType,
                     constructor.symbol,
-                    lambdaClass.typeParameters.size,
+                    lambdaInfo.lambdaClass.typeParameters.size,
                     constructor.typeParameters.size,
                     constructor.valueParameters.size
                 )
@@ -303,7 +302,7 @@ class InteropCallableReferenceLowering(val context: JsIrBackendContext) : BodyLo
 
             lambdaDeclaration.body = buildLambdaBody(instanceVal, lambdaDeclaration, lambdaInfo.invokeFun)
 
-            newDeclarations.add(lambdaClass)
+            newDeclarations.add(lambdaInfo.lambdaClass)
         } else {
             val fieldToParameterMapping = capturedFieldsToParametersMap(constructor, factoryFunction)
             val oldToNewInvokeParametersMapping = lambdaInfo.createOldToNewInvokeParametersMapping(lambdaDeclaration)
@@ -311,15 +310,15 @@ class InteropCallableReferenceLowering(val context: JsIrBackendContext) : BodyLo
                 inlineLambdaBody(lambdaDeclaration, lambdaInfo.invokeFun, oldToNewInvokeParametersMapping, fieldToParameterMapping)
 
             // lambdas can contain another lambdas and local classes in so let's not lose them
-            newDeclarations.addAll(lambdaClass.lambdaInnerClasses())
+            newDeclarations.addAll(lambdaInfo.lambdaInnerClasses())
         }
 
-        val lambdaType = lambdaClass.superTypes.single { it.classifierOrNull === superClass.symbol }
-        val functionExpression = lambdaClass.run {
+        val lambdaType = lambdaInfo.lambdaClass.superTypes.single { it.classifierOrNull === superClass.symbol }
+        val functionExpression = lambdaInfo.lambdaClass.run {
             IrFunctionExpressionImpl(startOffset, endOffset, lambdaType, lambdaDeclaration, JsStatementOrigins.CALLABLE_REFERENCE_CREATE)
         }
 
-        val nameGetter = context.mapping.reflectedNameAccessor[lambdaClass]
+        val nameGetter = context.mapping.reflectedNameAccessor[lambdaInfo.lambdaClass]
 
         if (nameGetter != null || lambdaDeclaration.isSuspend) {
             val tmpVar = JsIrBuilder.buildVar(functionExpression.type, factoryFunction, "l", initializer = functionExpression)
@@ -354,7 +353,7 @@ class InteropCallableReferenceLowering(val context: JsIrBackendContext) : BodyLo
             statements.add(JsIrBuilder.buildReturn(factoryFunction.symbol, functionExpression, context.irBuiltIns.nothingType))
         }
 
-        return context.irFactory.createBlockBody(lambdaClass.startOffset, lambdaClass.endOffset, statements)
+        return context.irFactory.createBlockBody(lambdaInfo.lambdaClass.startOffset, lambdaInfo.lambdaClass.endOffset, statements)
     }
 
     private fun createLambdaDeclaration(
@@ -383,20 +382,19 @@ class InteropCallableReferenceLowering(val context: JsIrBackendContext) : BodyLo
     }
 
     private fun buildFactoryFunction(
-        lambdaClass: IrClass,
         ctorToFactoryMap: MutableMap<IrConstructorSymbol, IrSimpleFunctionSymbol>,
         lambdaInfo: LambdaInfo
     ): List<IrDeclaration> {
         val newDeclarations = mutableListOf<IrDeclaration>()
-        val constructor = lambdaClass.constructors.single()
+        val constructor = lambdaInfo.lambdaClass.constructors.single()
 
-        val factoryDeclaration = context.irFactory.stageController.restrictTo(lambdaClass) {
+        val factoryDeclaration = context.irFactory.stageController.restrictTo(lambdaInfo.lambdaClass) {
             context.irFactory.buildFun {
-                startOffset = lambdaClass.startOffset
-                endOffset = lambdaClass.endOffset
-                visibility = lambdaClass.visibility
-                returnType = lambdaClass.defaultType
-                name = lambdaClass.name
+                startOffset = lambdaInfo.lambdaClass.startOffset
+                endOffset = lambdaInfo.lambdaClass.endOffset
+                visibility = lambdaInfo.lambdaClass.visibility
+                returnType = lambdaInfo.lambdaClass.defaultType
+                name = lambdaInfo.lambdaClass.name
                 origin = JsStatementOrigins.FACTORY_ORIGIN
             }
         }
@@ -409,7 +407,7 @@ class InteropCallableReferenceLowering(val context: JsIrBackendContext) : BodyLo
             }
         }
 
-        factoryDeclaration.body = buildFactoryBody(factoryDeclaration, lambdaClass, newDeclarations, lambdaInfo)
+        factoryDeclaration.body = buildFactoryBody(factoryDeclaration, newDeclarations, lambdaInfo)
 
         newDeclarations.add(factoryDeclaration)
         ctorToFactoryMap[constructor.symbol] = factoryDeclaration.symbol
@@ -421,14 +419,17 @@ class InteropCallableReferenceLowering(val context: JsIrBackendContext) : BodyLo
      * Replaces a contextless lambda class with a free function.
      */
     private fun liftLambda(
-        lambdaClass: IrClass,
         ctorToFreeFunctionMap: MutableMap<IrConstructorSymbol, IrSimpleFunctionSymbol>,
         lambdaInfo: LambdaInfo
     ): List<IrDeclaration> {
-        val constructor = lambdaClass.constructors.single()
+        val constructor = lambdaInfo.lambdaClass.constructors.single()
         val newDeclarations = mutableListOf<IrDeclaration>()
-        val freeFunctionDeclaration =
-            createLambdaDeclaration(lambdaInfo.invokeFun, lambdaClass.name, lambdaClass.parent, lambdaInfo.superInvokeFun)
+        val freeFunctionDeclaration = createLambdaDeclaration(
+            lambdaInfo.invokeFun,
+            lambdaInfo.lambdaClass.name,
+            lambdaInfo.lambdaClass.parent,
+            lambdaInfo.superInvokeFun
+        )
 
         freeFunctionDeclaration.body = inlineLambdaBody(
             freeFunctionDeclaration,
@@ -440,7 +441,7 @@ class InteropCallableReferenceLowering(val context: JsIrBackendContext) : BodyLo
         newDeclarations.add(freeFunctionDeclaration)
 
         // lambdas can contain another lambdas and local classes in so let's not lose them
-        newDeclarations.addAll(lambdaClass.lambdaInnerClasses())
+        newDeclarations.addAll(lambdaInfo.lambdaInnerClasses())
 
         ctorToFreeFunctionMap[constructor.symbol] = freeFunctionDeclaration.symbol
 
