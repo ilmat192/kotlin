@@ -25,25 +25,3 @@ internal actual object MonotonicTimeSource : TimeSource {
 internal actual typealias DefaultTimeMarkReading = Long
 
 
-//@SinceKotlin("1.3")
-//@ExperimentalTime
-//public inline fun measureTimeSpec(block: () -> Unit): Duration {
-//    contract {
-//        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
-//    }
-//
-//    val mark = MonotonicTimeSource.markNow()
-//    block()
-//    return mark.elapsedNow()
-//}
-//
-//@OptIn(ExperimentalTime::class)
-//fun testMono() {
-//    MonotonicTimeSource.measureTime {
-//        println("test")
-//    }
-//    measureTimeSpec {
-//        println("test2")
-//    }
-//}
-//
